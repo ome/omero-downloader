@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+        http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>ome</groupId>
+        <artifactId>pom-omero-client</artifactId>
+        <version>4.4.1</version>
+    </parent>
+
+    <groupId>com.example</groupId>
+    <artifactId>MyClient</artifactId>
+    <version>1.0.0</version>
+
+    <name>Example</name>
+    <description>An example maven project for connection to OMERO</description>
+
+    <dependencies>
+        <dependency>
+          <groupId>omero</groupId>
+          <artifactId>blitz</artifactId>
+        </dependency>
+    </dependencies>
+
+    <!-- Temporary -->
+    <repositories>
+    <repository>
+        <id>local.jars</id>
+        <name>local.jars</name>
+        <url>file:///opt/ome5/target/repository</url>
+    </repository>
+    </repositories>
+
+</project>

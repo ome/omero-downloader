@@ -7,6 +7,8 @@
  */
 package com.example;
 
+import omero.api.IAdminPrx;
+
 /**
  * A simple connection to an OMERO server.
  *
@@ -19,5 +21,11 @@ public class SimpleConnection {
     public static void main(String[] args) throws Exception {
         omero.client client = new omero.client(args);
         client.createSession();
+        try {
+            IAdminPrx admin = client.getSession().getAdminService();
+            System.out.println("Logged in as :" + admin.getEventContext().userName);
+        } finally {
+            client.__del__();
+        }
     }
 }

@@ -26,7 +26,7 @@
         </dependency>
         <dependency>
           <groupId>ome</groupId>
-          <artifactId>bio-formats</artifactId>
+          <artifactId>bioformats_package</artifactId>
         </dependency>
     </dependencies>
 

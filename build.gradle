@@ -1,0 +1,55 @@
+apply plugin: 'application'
+apply plugin: 'java'
+
+mainClassName = 'ome.formats.importer.cli.CommandLineImporter'
+
+def javaOpts = [
+    '-Dlog4j.configuration=log4j-cli.properties',
+    '-Xmx512M'
+]
+
+version '0.1'
+
+repositories {
+    mavenCentral()
+    maven {
+        url 'http://artifacts.openmicroscopy.org/artifactory/ome.release/'
+    }
+    maven {
+        url 'http://artifacts.openmicroscopy.org/artifactory/ome.snapshots/'
+    }
+    maven {
+        url 'http://artifacts.openmicroscopy.org/artifactory/ome.external/'
+    }
+    maven {
+        url 'http://artifacts.openmicroscopy.org/artifactory/ome.manual/'
+    }
+    maven {
+        url 'http://repository.springsource.com/maven/bundles/release/'
+    }
+    maven {
+        url 'http://repository.springsource.com/maven/bundles/external/'
+    }
+    maven {
+        url '/Users/callan/code/ome.git/target/repository/'
+    }
+}
+
+dependencies {
+    compile group: 'ome', name: 'formats-gpl', version: '5.0.2-SNAPSHOT'
+    compile group: 'org.springframework.ldap', name: 'spring-ldap', version: '1.3.0.RELEASE', classifier: 'all'
+    compile(group: 'omero', name: 'omero_client', version: '5.0.2-ice35-SNAPSHOT') {
+        exclude group: 'ome', module: 'bio-formats'
+        exclude group: 'org.springframework.ldap', module: 'spring-ldap'
+    }
+}
+
+startScripts {
+    doLast {
+        def script = new File(getOutputDir(), applicationName)
+        String content = script.text
+        script.text = content.replaceFirst(
+            'DEFAULT_JVM_OPTS=""',
+            "DEFAULT_JVM_OPTS=\"${javaOpts.join(' ')}\"")
+    }
+}

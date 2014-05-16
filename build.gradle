@@ -31,6 +31,9 @@ repositories {
         url 'http://repository.springsource.com/maven/bundles/external/'
     }
     maven {
+        url 'http://artifacts.unidata.ucar.edu/content/repositories/unidata-releases/'
+    }
+    maven {
         url '/Users/callan/code/ome.git/target/repository/'
     }
 }

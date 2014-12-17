@@ -9,12 +9,12 @@
     <parent>
         <groupId>ome</groupId>
         <artifactId>pom-omero-client</artifactId>
-        <version>5.1.6</version>
+        <version>5.1.7</version>
     </parent>
 
     <groupId>com.example</groupId>
     <artifactId>MyClient</artifactId>
-    <version>5.1.6</version>
+    <version>5.1.7</version>
 
     <name>Example</name>
     <description>An example maven project for connection to OMERO</description>

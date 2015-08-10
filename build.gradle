@@ -1,7 +1,7 @@
 apply plugin: 'application'
 apply plugin: 'java'
 
-mainClassName = 'ome.formats.importer.cli.CommandLineImporter'
+mainClassName = 'com.example.SimpleConnection'
 
 def javaOpts = [
     '-Dlog4j.configuration=log4j-cli.properties',

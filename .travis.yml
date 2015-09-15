@@ -5,7 +5,9 @@ language: java
 # http://docs.travis-ci.com/user/workers/container-based-infrastructure/
 sudo: false
 
-# http://docs.travis-ci.com/user/caching/#Arbitrary-directories
-cache:
-  directories:
-  - $HOME/.m2
+env:
+  - BUILD=gradle
+  - BUILD=maven
+
+before_install:
+  - if [[ $BUILD == 'maven' ]]; then rm build.gradle; fi

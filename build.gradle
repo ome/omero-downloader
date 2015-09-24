@@ -8,10 +8,14 @@ def javaOpts = [
     '-Xmx512M'
 ]
 
-version '5.1.11'
+version '5.1.12'
 
 repositories {
+    mavenLocal()
     mavenCentral()
+    maven {
+        name 'Unidata'
+        url 'https://artifacts.unidata.ucar.edu/content/repositories/unidata-releases'}
     maven {
         url 'http://artifacts.openmicroscopy.org/artifactory/maven/'
     }
@@ -24,7 +28,6 @@ dependencies {
         exclude group: 'org.testng', module: 'testng'
     }
     compile(group: 'omero', name: 'blitz', version: '5.1.3-ice35-b52') {
-        exclude group: 'ome', module: 'bio-formats'
         exclude group: 'org.springframework.ldap', module: 'spring-ldap'
         exclude group: 'org.testng', module: 'testng'
         exclude group: 'hsqldb', module: 'hsqldb'

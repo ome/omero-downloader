@@ -9,7 +9,7 @@
     <parent>
         <groupId>ome</groupId>
         <artifactId>pom-omero-client</artifactId>
-        <version>5.1.12</version>
+        <version>5.1.13</version>
     </parent>
 
     <groupId>com.example</groupId>

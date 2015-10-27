@@ -17,7 +17,7 @@
     <version>5.2.0</version>
 
     <name>Example</name>
-    <description>An example maven project for connection to OMERO</description>
+    <description>An example maven project for connection to OMERO using the Java gateway.</description>
 
     <dependencies>
         <dependency>
@@ -25,11 +25,26 @@
           <artifactId>blitz</artifactId>
         </dependency>
         <dependency>
-          <groupId>ome</groupId>
-          <artifactId>bioformats_package</artifactId>
+          <groupId>commons-lang</groupId>
+          <artifactId>commons-lang</artifactId>
+          <version>2.5</version>
+        </dependency>
+        <dependency>
+          <groupId>commons-collections</groupId>
+          <artifactId>commons-collections</artifactId>
+          <version>3.2</version>
+        </dependency>
+        <dependency>
+          <groupId>com.google.guava</groupId>
+          <artifactId>guava</artifactId>
+          <version>3.2</version>
+        </dependency>
+        <dependency>
+          <groupId>ch.qos.logback</groupId>
+          <artifactId>logback-classic</artifactId>
+          <version>1.1.3</version>
         </dependency>
     </dependencies>
-
     <repositories>
         <repository>
           <id>ome.maven</id>

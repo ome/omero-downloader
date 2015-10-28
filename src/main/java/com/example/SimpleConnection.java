@@ -65,6 +65,7 @@ public class SimpleConnection {
     {
         BrowseFacility browse = gateway.getFacility(BrowseFacility.class);
         Collection<ProjectData> projects = browse.getProjects(ctx);
+        System.err.println(projects);
     }
 
     /** Creates a new instance.*/
@@ -77,9 +78,10 @@ public class SimpleConnection {
      */
     public static void main(String[] args) throws Exception {
         //read args
-        String hostname = "yourServerName";
-        String userName = "UserName";
-        String password = "UserPassword";
+        String hostname = "localhost";
+        String userName = "root";
+        String password = "omero";
+        SimpleConnection client = new SimpleConnection();
         try {
             client.connect(hostname, 0, userName, password);
             //Do something e.g. loading user's data.

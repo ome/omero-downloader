@@ -25,6 +25,10 @@
           <artifactId>blitz</artifactId>
         </dependency>
         <dependency>
+          <groupId>ome</groupId>
+          <artifactId>bioformats_package</artifactId>
+        </dependency>
+        <dependency>
           <groupId>commons-lang</groupId>
           <artifactId>commons-lang</artifactId>
           <version>2.5</version>

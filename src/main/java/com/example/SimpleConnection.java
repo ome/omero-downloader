@@ -78,9 +78,9 @@ public class SimpleConnection {
      */
     public static void main(String[] args) throws Exception {
         //read args
-        String hostname = "localhost";
-        String userName = "root";
-        String password = "omero";
+        String hostname = "serverName";
+        String userName = "userName";
+        String password = "userPassword";
         SimpleConnection client = new SimpleConnection();
         try {
             client.connect(hostname, 0, userName, password);

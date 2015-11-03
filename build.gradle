@@ -22,7 +22,7 @@ repositories {
 }
 
 dependencies {
-    compile(group: 'ome', name: 'formats-gpl', version: '5.1.4'){
+    compile(group: 'ome', name: 'formats-gpl', version: '5.1.5'){
     }
     compile(group: 'org.springframework.ldap', name: 'spring-ldap', version: '1.3.0.RELEASE', classifier: 'all'){
         exclude group: 'org.testng', module: 'testng'

@@ -88,7 +88,6 @@ public class SimpleConnection {
             //Load the projects/datasets owned by the user currently logged in.
             client.loadProjects();
         } catch (Exception e) {
-           e.printStackTrace();
         } finally {
             client.disconnect();
         }

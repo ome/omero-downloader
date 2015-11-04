@@ -23,6 +23,7 @@
         <dependency>
           <groupId>omero</groupId>
           <artifactId>blitz</artifactId>
+          <version>5.2.0-ice35-b12</version>
         </dependency>
         <dependency>
           <groupId>ome</groupId>

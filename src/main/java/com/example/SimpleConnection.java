@@ -53,6 +53,20 @@ public class SimpleConnection {
         ctx = new SecurityContext(user.getGroupId());
     }
 
+    /** 
+     * Creates a connection, the gateway will take care of the services
+     * life-cycle.
+     *
+     * @param args The arguments used to connect.
+     */
+    private void connect(String[] args)
+        throws Exception
+    {
+        LoginCredentials cred = new LoginCredentials(args);
+        ExperimenterData user = gateway.connect(cred);
+        ctx = new SecurityContext(user.getGroupId());
+    }
+    
     /** Makes sure to disconnect to destroy sessions.*/
     private void disconnect()
     {
@@ -76,13 +90,9 @@ public class SimpleConnection {
     /**
      */
     public static void main(String[] args) throws Exception {
-        //read args
-        String hostname = "serverName";
-        String userName = "userName";
-        String password = "userPassword";
         SimpleConnection client = new SimpleConnection();
         try {
-            client.connect(hostname, 0, userName, password);
+            client.connect(args);
             //Do something e.g. loading user's data.
             //Load the projects/datasets owned by the user currently logged in.
             client.loadProjects();

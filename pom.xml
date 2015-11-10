@@ -9,12 +9,12 @@
     <parent>
         <groupId>ome</groupId>
         <artifactId>pom-omero-client</artifactId>
-        <version>5.2.0</version>
+        <version>5.2.1-SNAPSHOT</version>
     </parent>
 
     <groupId>com.example</groupId>
     <artifactId>MyClient</artifactId>
-    <version>5.2.0</version>
+    <version>5.2.1-SNAPSHOT</version>
 
     <name>Example</name>
     <description>An example maven project for connection to OMERO using the Java gateway.</description>
@@ -23,17 +23,17 @@
         <dependency>
           <groupId>omero</groupId>
           <artifactId>blitz</artifactId>
-          <version>5.2.0-ice35-b12</version>
+          <version>5.2.1-${ice.version}-SNAPSHOT</version>
         </dependency>
         <dependency>
           <groupId>ome</groupId>
           <artifactId>formats-bsd</artifactId>
-          <version>5.1.5</version>
+          <version>5.1.6-SNAPSHOT</version>
         </dependency>
         <dependency>
           <groupId>ome</groupId>
           <artifactId>formats-gpl</artifactId>
-          <version>5.1.5</version>
+          <version>5.1.6-SNAPSHOT</version>
         </dependency>
         <dependency>
           <groupId>com.google.guava</groupId>
@@ -41,6 +41,19 @@
           <version>17.0</version>
         </dependency>
     </dependencies>
+    <profiles>
+    <profile>
+      <id>ice35</id>
+      <activation>
+        <property>
+          <name>!ice</name>
+        </property>
+      </activation>
+      <properties>
+        <ice.version>ice35</ice.version>
+      </properties>
+    </profile>
+  </profiles>
     <repositories>
         <repository>
           <id>ome.maven</id>

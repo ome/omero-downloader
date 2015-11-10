@@ -65,7 +65,6 @@ public class SimpleConnection {
     {
         BrowseFacility browse = gateway.getFacility(BrowseFacility.class);
         Collection<ProjectData> projects = browse.getProjects(ctx);
-        System.err.println(projects);
     }
 
     /** Creates a new instance.*/

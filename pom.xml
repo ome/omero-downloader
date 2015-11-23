@@ -33,11 +33,6 @@
           <groupId>ome</groupId>
           <artifactId>formats-gpl</artifactId>
         </dependency>
-        <dependency>
-          <groupId>com.google.guava</groupId>
-          <artifactId>guava</artifactId>
-          <version>17.0</version>
-        </dependency>
     </dependencies>
     <profiles>
     <profile>

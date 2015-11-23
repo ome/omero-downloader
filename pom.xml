@@ -54,7 +54,7 @@
         </repository>
         <repository>
           <id>ome.staging</id>
-          <url>http://artifacts.openmicroscopy.org/artifactory/simple/ome.staging//</url>
+          <url>http://artifacts.openmicroscopy.org/artifactory/simple/ome.staging/</url>
         </repository>
     </repositories>
 

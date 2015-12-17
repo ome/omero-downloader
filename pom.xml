@@ -51,10 +51,6 @@
           <id>ome.maven</id>
           <url>http://artifacts.openmicroscopy.org/artifactory/maven/</url>
         </repository>
-        <repository>
-          <id>ome.staging</id>
-          <url>http://artifacts.openmicroscopy.org/artifactory/simple/ome.staging/</url>
-        </repository>
     </repositories>
 
     <build>

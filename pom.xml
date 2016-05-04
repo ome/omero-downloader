@@ -45,6 +45,18 @@
         <ice.version>ice35</ice.version>
       </properties>
     </profile>
+    <profile>
+      <id>ice36</id>
+      <activation>
+        <property>
+          <name>ice</name>
+          <value>36</value>
+        </property>
+      </activation>
+      <properties>
+        <ice.version>ice36</ice.version>
+      </properties>
+    </profile>
   </profiles>
     <repositories>
         <repository>

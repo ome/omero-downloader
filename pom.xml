@@ -12,12 +12,12 @@
         <version>5.2.8</version>
     </parent>
 
-    <groupId>com.example</groupId>
-    <artifactId>MyClient</artifactId>
-    <version>5.2.3</version>
+    <groupId>omero</groupId>
+    <artifactId>downloader</artifactId>
+    <version>5.2.0</version>
 
-    <name>Example</name>
-    <description>An example maven project for connection to OMERO using the Java gateway.</description>
+    <name>OMERO.downloader</name>
+    <description>OMERO client for downloading data in bulk from the server</description>
 
     <dependencies>
         <dependency>

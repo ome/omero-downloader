@@ -30,11 +30,11 @@ import omero.log.Logger;
 import omero.log.SimpleLogger;
 import omero.model.IObject;
 import omero.model.OriginalFile;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
-
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
@@ -43,7 +43,19 @@ import org.apache.commons.cli.ParseException;
  * @author m.t.b.carroll@dundee.ac.uk
  */
 public class Download {
-    public static void main(String argv[]) {
+
+    private static final Logger LOGGER = new SimpleLogger();
+    private static final Gateway GATEWAY = new Gateway(LOGGER);
+
+    private static SecurityContext ctx;
+
+    /**
+     * Parse the command-line options.
+     * Aborts with help message if warranted.
+     * @param argv the command-line options
+     * @return the parsed options
+     */
+    private static CommandLine parseOptions(String argv[]) {
         final Options options = new Options();
         options.addOption("s", "server", true, "OMERO server host name");
         options.addOption("p", "port", true, "OMERO server port number");
@@ -52,11 +64,11 @@ public class Download {
         options.addOption("h", "help", false, "help");
 
         Integer exitCode = null;
-        CommandLine cmd = null;
+        CommandLine parsed = null;
         try {
             final CommandLineParser parser = new DefaultParser();
-            cmd = parser.parse(options, argv);
-            if (cmd.hasOption('h')) {
+            parsed = parser.parse(options, argv);
+            if (parsed.hasOption('h')) {
                 exitCode = 1;
             }
         } catch (ParseException pe) {
@@ -68,10 +80,18 @@ public class Download {
             System.exit(exitCode);
         }
 
-        String host = cmd.getOptionValue('s');
-        String port = cmd.getOptionValue('p');
-        final String user = cmd.getOptionValue('u');
-        final String pass = cmd.getOptionValue('w');
+        return parsed;
+    }
+
+    /**
+     * Open the gateway to the OMERO server and connect to set the security context.
+     * @param parsedOptions the command-line options
+     */
+    private static void openGateway(CommandLine parsedOptions) {
+        String host = parsedOptions.getOptionValue('s');
+        String port = parsedOptions.getOptionValue('p');
+        final String user = parsedOptions.getOptionValue('u');
+        final String pass = parsedOptions.getOptionValue('w');
 
         if (host == null) {
             host = "localhost";
@@ -80,31 +100,45 @@ public class Download {
             port = "4064";
         }
 
-        final LoginCredentials cred = new LoginCredentials(user, pass, host, Integer.parseInt(port));
-        final Logger simpleLogger = new SimpleLogger();
+        final LoginCredentials credentials = new LoginCredentials(user, pass, host, Integer.parseInt(port));
 
-        final Gateway gateway = new Gateway(simpleLogger);
-        ExperimenterData exp = null;
         try {
-            exp = gateway.connect(cred);
-        } catch (DSOutOfServiceException ex) {
-            simpleLogger.fatal(ex, "cannot connect to server");
+            final ExperimenterData experimenter = GATEWAY.connect(credentials);
+            ctx = new SecurityContext(experimenter.getGroupId());
+        } catch (DSOutOfServiceException oose) {
+            LOGGER.fatal(oose, "cannot connect to server");
             System.exit(3);
         }
 
-        SecurityContext ctx = new SecurityContext(exp.getGroupId());
+    }
+
+    /**
+     * Do an example query from the server and print the results.
+     * @throws DSOutOfServiceException if the query service was not available
+     * @throws ServerError if the query could not be executed
+     */
+    private static void doQuery() throws DSOutOfServiceException, ServerError {
+        final IQueryPrx iQuery = GATEWAY.getQueryService(ctx);
+        for (final IObject result : iQuery.findAllByQuery("FROM OriginalFile", null)) {
+            final OriginalFile file = (OriginalFile) result;
+            System.out.println("#" + file.getId().getValue() + " " + file.getPath().getValue() + file.getName().getValue());
+        }
+    }
+
+    /**
+     * Perform the query as instructed.
+     * @param argv the command-line options
+     */
+    public static void main(String argv[]) {
+        openGateway(parseOptions(argv));
 
         try {
-            final IQueryPrx iQuery = gateway.getQueryService(ctx);
-            for (final IObject result : iQuery.findAllByQuery("FROM OriginalFile", null)) {
-                final OriginalFile file = (OriginalFile) result;
-                System.out.println("#" + file.getId().getValue() + " " + file.getPath().getValue() + file.getName().getValue());
-            }
-        } catch (DSOutOfServiceException | ServerError ex) {
-            simpleLogger.fatal(ex, "cannot query server");
+            doQuery();
+        } catch (DSOutOfServiceException | ServerError e) {
+            LOGGER.fatal(e, "cannot query server");
             System.exit(3);
         }
 
-        gateway.disconnect();
+        GATEWAY.disconnect();
     }
 }

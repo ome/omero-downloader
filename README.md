@@ -1,6 +1,7 @@
-This is a minimal Maven project for connecting to OMERO
-using the Java gateway
-based on https://github.com/imagej/minimal-ij1-plugin.
+An OMERO client for downloading data in bulk from the server.
 
-Thanks to @dscho and @ctrueden for the example. More
-instructions to come!
+Currently an experimental work in progress that may nonetheless serve as
+an illustrative example of a Java-based CLI application.
+
+Copyright (C) 2016 University of Dundee & Open Microscopy Environment.
+All rights reserved.

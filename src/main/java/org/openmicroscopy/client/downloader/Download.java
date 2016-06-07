@@ -19,6 +19,12 @@
 
 package org.openmicroscopy.client.downloader;
 
+import com.google.common.base.Splitter;
+
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import omero.ServerError;
 import omero.api.IQueryPrx;
 import omero.gateway.Gateway;
@@ -46,6 +52,7 @@ public class Download {
 
     private static final Logger LOGGER = new SimpleLogger();
     private static final Gateway GATEWAY = new Gateway(LOGGER);
+    private static final Pattern TARGET_PATTERN = Pattern.compile("([A-Z][A-Za-z]*):(\\d+(,\\d+)*)");
 
     private static SecurityContext ctx;
 
@@ -120,7 +127,7 @@ public class Download {
             final ExperimenterData experimenter = GATEWAY.connect(credentials);
             ctx = new SecurityContext(experimenter.getGroupId());
         } catch (DSOutOfServiceException oose) {
-            LOGGER.fatal(oose, "cannot connect to server");
+            LOGGER.fatal(oose, "cannot log in to server");
             System.exit(3);
         }
 
@@ -144,7 +151,21 @@ public class Download {
      * @param argv the command-line options
      */
     public static void main(String argv[]) {
-        openGateway(parseOptions(argv));
+        final CommandLine parsedOptions = parseOptions(argv);
+        openGateway(parsedOptions);
+
+        final List<String> targetArgs = parsedOptions.getArgList();
+        for (final String target : targetArgs) {
+            System.out.println("target: " + target);
+            final Matcher matcher = TARGET_PATTERN.matcher(target);
+            if (matcher.matches()) {
+                final String className = matcher.group(1);
+                final Iterable<String> ids = Splitter.on(',').split(matcher.group(2));
+                for (final String id : ids) {
+                    System.out.println("  " + className + ":" + id);
+                }
+            }
+        }
 
         try {
             doQuery();

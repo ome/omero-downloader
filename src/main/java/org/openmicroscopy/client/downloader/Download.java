@@ -61,6 +61,7 @@ public class Download {
         options.addOption("p", "port", true, "OMERO server port number");
         options.addOption("u", "user", true, "OMERO username");
         options.addOption("w", "pass", true, "OMERO password");
+        options.addOption("k", "key", true, "OMERO session key");
         options.addOption("h", "help", false, "help");
 
         Integer exitCode = null;
@@ -90,14 +91,27 @@ public class Download {
     private static void openGateway(CommandLine parsedOptions) {
         String host = parsedOptions.getOptionValue('s');
         String port = parsedOptions.getOptionValue('p');
-        final String user = parsedOptions.getOptionValue('u');
+        String user = parsedOptions.getOptionValue('u');
         final String pass = parsedOptions.getOptionValue('w');
+        final String key = parsedOptions.getOptionValue('k');
 
         if (host == null) {
             host = "localhost";
         }
         if (port == null) {
             port = "4064";
+        }
+
+        if (key == null) {
+            if (user == null || pass == null) {
+                System.err.println("must offer username and password or session key");
+                System.exit(2);
+            }
+        } else {
+            if (user != null || pass != null) {
+                LOGGER.warn(null, "username and password ignored if session key is provided");
+            }
+            user = key;
         }
 
         final LoginCredentials credentials = new LoginCredentials(user, pass, host, Integer.parseInt(port));

@@ -19,6 +19,11 @@
     <name>OMERO.downloader</name>
     <description>OMERO client for downloading data in bulk from the server</description>
 
+    <properties>
+        <maven.compiler.source>1.7</maven.compiler.source>
+        <maven.compiler.target>1.7</maven.compiler.target>
+    </properties>
+
     <dependencies>
         <dependency>
           <groupId>omero</groupId>

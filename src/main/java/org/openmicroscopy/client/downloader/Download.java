@@ -24,18 +24,24 @@ import com.google.common.base.Splitter;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import omero.RLong;
+import omero.RType;
 
 import omero.ServerError;
 import omero.api.IQueryPrx;
+import omero.cmd.FoundChildren;
+import omero.cmd.Response;
 import omero.gateway.Gateway;
 import omero.gateway.LoginCredentials;
 import omero.gateway.SecurityContext;
 import omero.gateway.exception.DSOutOfServiceException;
 import omero.gateway.model.ExperimenterData;
+import omero.gateway.util.Requests;
 import omero.log.Logger;
 import omero.log.SimpleLogger;
-import omero.model.IObject;
-import omero.model.OriginalFile;
+import omero.model.Image;
+import omero.model.Roi;
+import omero.sys.ParametersI;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -43,6 +49,7 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.springframework.util.CollectionUtils;
 
 /**
  * OMERO client for downloading data in bulk from the server.
@@ -122,7 +129,6 @@ public class Download {
         }
 
         final LoginCredentials credentials = new LoginCredentials(user, pass, host, Integer.parseInt(port));
-
         try {
             final ExperimenterData experimenter = GATEWAY.connect(credentials);
             ctx = new SecurityContext(experimenter.getGroupId());
@@ -134,19 +140,6 @@ public class Download {
     }
 
     /**
-     * Do an example query from the server and print the results.
-     * @throws DSOutOfServiceException if the query service was not available
-     * @throws ServerError if the query could not be executed
-     */
-    private static void doQuery() throws DSOutOfServiceException, ServerError {
-        final IQueryPrx iQuery = GATEWAY.getQueryService(ctx);
-        for (final IObject result : iQuery.findAllByQuery("FROM OriginalFile", null)) {
-            final OriginalFile file = (OriginalFile) result;
-            System.out.println("#" + file.getId().getValue() + " " + file.getPath().getValue() + file.getName().getValue());
-        }
-    }
-
-    /**
      * Perform the query as instructed.
      * @param argv the command-line options
      */
@@ -154,23 +147,57 @@ public class Download {
         final CommandLine parsedOptions = parseOptions(argv);
         openGateway(parsedOptions);
 
+        final Requests.FindChildrenBuilder finder = Requests.findChildren().childType(Image.class).stopBefore(Roi.class);
         final List<String> targetArgs = parsedOptions.getArgList();
+        if (targetArgs.isEmpty()) {
+            LOGGER.fatal(null, "no download targets specified");
+            System.exit(2);
+        }
         for (final String target : targetArgs) {
-            System.out.println("target: " + target);
             final Matcher matcher = TARGET_PATTERN.matcher(target);
             if (matcher.matches()) {
-                final String className = matcher.group(1);
+                finder.target(matcher.group(1));
                 final Iterable<String> ids = Splitter.on(',').split(matcher.group(2));
                 for (final String id : ids) {
-                    System.out.println("  " + className + ":" + id);
+                    finder.id(Long.parseLong(id));
                 }
             }
         }
 
+        FoundChildren found = null;
         try {
-            doQuery();
-        } catch (DSOutOfServiceException | ServerError e) {
-            LOGGER.fatal(e, "cannot query server");
+            final Response response = GATEWAY.submit(ctx, finder.build()).loop(250, 250);
+            if (response instanceof FoundChildren) {
+                found = (FoundChildren) response;
+            } else {
+                LOGGER.fatal(response, "failed to identify targets for download");
+                System.exit(3);
+            }
+        } catch (Throwable t) {
+            LOGGER.fatal(t, "failed to identify targets for download");
+            System.exit(3);
+        }
+        IQueryPrx iQuery = null;
+        try {
+            iQuery = GATEWAY.getQueryService(ctx);
+        } catch (DSOutOfServiceException oose) {
+            LOGGER.fatal(oose, "cannot access query service");
+            System.exit(3);
+        }
+        final List<Long> imageIds = found.children.get(ome.model.core.Image.class.getName());
+        if (CollectionUtils.isEmpty(imageIds)) {
+            LOGGER.fatal(null, "no images found");
+            System.exit(3);
+        }
+        try {
+            for (final List<RType> result : iQuery.projection(
+                    "SELECT DISTINCT fileset.id FROM Image WHERE fileset IS NOT NULL AND id IN (:ids)",
+                    new ParametersI().addIds(imageIds))) {
+                final long filesetId = ((RLong) result.get(0)).getValue();
+                System.out.println("need fileset #" + filesetId);
+            }
+        } catch (ServerError se) {
+            LOGGER.fatal(se, "cannot use query service");
             System.exit(3);
         }
 

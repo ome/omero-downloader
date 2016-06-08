@@ -13,6 +13,22 @@
     <name>OMERO.downloader</name>
     <description>OMERO client for downloading data in bulk from the server</description>
 
+  <organization>
+    <name>Open Microscopy Environment</name>
+    <url>http://openmicroscopy.org/</url>
+  </organization>
+
+  <developers>
+    <developer>
+      <id>openmicroscopy.org</id>
+      <name>The OME Team</name>
+      <email>ome-devel@lists.openmicroscopy.org.uk</email>
+      <url>http://openmicroscopy.org/</url>
+      <organization>Open Microscopy Environment</organization>
+      <organizationUrl>http://openmicroscopy.org/</organizationUrl>
+    </developer>
+  </developers>
+
     <properties>
       <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
       <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>

@@ -19,18 +19,21 @@
 
 package org.openmicroscopy.client.downloader;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
 import omero.RLong;
 import omero.RType;
-
 import omero.ServerError;
 import omero.api.IQueryPrx;
 import omero.cmd.FoundChildren;
-import omero.cmd.Response;
+import omero.cmd.UsedFilesRequest;
+import omero.cmd.UsedFilesResponse;
+import omero.cmd.UsedFilesResponsePreFs;
 import omero.gateway.Gateway;
 import omero.gateway.LoginCredentials;
 import omero.gateway.SecurityContext;
@@ -41,6 +44,7 @@ import omero.log.Logger;
 import omero.log.SimpleLogger;
 import omero.model.Image;
 import omero.model.Roi;
+import omero.sys.Parameters;
 import omero.sys.ParametersI;
 
 import org.apache.commons.cli.CommandLine;
@@ -62,6 +66,7 @@ public class Download {
     private static final Pattern TARGET_PATTERN = Pattern.compile("([A-Z][A-Za-z]*):(\\d+(,\\d+)*)");
 
     private static SecurityContext ctx;
+    private static RequestManager requests;
 
     /**
      * Parse the command-line options.
@@ -76,6 +81,9 @@ public class Download {
         options.addOption("u", "user", true, "OMERO username");
         options.addOption("w", "pass", true, "OMERO password");
         options.addOption("k", "key", true, "OMERO session key");
+        options.addOption("b", "only-binary", false, "download only binary files");
+        options.addOption("c", "only-companion", false, "download only companion files");
+        options.addOption("f", "whole-fileset", false, "download whole fileset");
         options.addOption("h", "help", false, "help");
 
         Integer exitCode = null;
@@ -136,17 +144,41 @@ public class Download {
             LOGGER.fatal(oose, "cannot log in to server");
             System.exit(3);
         }
-
+        requests = new RequestManager(GATEWAY, ctx, 250);
     }
 
     /**
-     * Perform the query as instructed.
+     * Perform a query and return the results. Abort if the query fails.
+     * @param hql the Hibernate query string
+     * @param parameters values for the named parameters of the query
+     * @return the query results
+     */
+    private static Iterable<List<RType>> query(String hql, Parameters parameters) {
+        try {
+            return GATEWAY.getQueryService(ctx).projection(hql, parameters);
+        } catch (DSOutOfServiceException oose) {
+            LOGGER.fatal(oose, "cannot access query service");
+        } catch (ServerError se) {
+            LOGGER.fatal(se, "cannot use query service");
+        }
+        System.exit(3);
+        return null;
+    }
+
+    /**
+     * Perform the download as instructed.
      * @param argv the command-line options
      */
     public static void main(String argv[]) {
+        /* parse the command-line options and connect to the OMERO server */
         final CommandLine parsedOptions = parseOptions(argv);
+        if (parsedOptions.hasOption('b') && parsedOptions.hasOption('c')) {
+            System.err.println("cannot combine multiple 'only' options");
+            System.exit(2);
+        }
         openGateway(parsedOptions);
 
+        /* determine which objects are targeted */
         final Requests.FindChildrenBuilder finder = Requests.findChildren().childType(Image.class).stopBefore(Roi.class);
         final List<String> targetArgs = parsedOptions.getArgList();
         if (targetArgs.isEmpty()) {
@@ -161,46 +193,78 @@ public class Download {
                 for (final String id : ids) {
                     finder.id(Long.parseLong(id));
                 }
+            } else {
+                System.err.println("cannot parse Target:ids argument: " + target);
+                System.exit(2);
             }
         }
 
-        FoundChildren found = null;
-        try {
-            final Response response = GATEWAY.submit(ctx, finder.build()).loop(250, 250);
-            if (response instanceof FoundChildren) {
-                found = (FoundChildren) response;
-            } else {
-                LOGGER.fatal(response, "failed to identify targets for download");
-                System.exit(3);
-            }
-        } catch (Throwable t) {
-            LOGGER.fatal(t, "failed to identify targets for download");
-            System.exit(3);
-        }
+        /* find the images of those targets */
+        final FoundChildren found = requests.submit("finding target images", finder.build(), FoundChildren.class);
         IQueryPrx iQuery = null;
-        try {
-            iQuery = GATEWAY.getQueryService(ctx);
-        } catch (DSOutOfServiceException oose) {
-            LOGGER.fatal(oose, "cannot access query service");
-            System.exit(3);
-        }
         final List<Long> imageIds = found.children.get(ome.model.core.Image.class.getName());
         if (CollectionUtils.isEmpty(imageIds)) {
             LOGGER.fatal(null, "no images found");
             System.exit(3);
         }
-        try {
-            for (final List<RType> result : iQuery.projection(
-                    "SELECT DISTINCT fileset.id FROM Image WHERE fileset IS NOT NULL AND id IN (:ids)",
-                    new ParametersI().addIds(imageIds))) {
-                final long filesetId = ((RLong) result.get(0)).getValue();
-                System.out.println("need fileset #" + filesetId);
+
+        /* map the filesets of the targeted images */
+        final RepositoryManager localRepo = new RepositoryManager();
+        localRepo.assertWantImages(imageIds);
+        System.out.print("mapping fileset of images " + Joiner.on(", ").join(imageIds) + "...");
+        System.out.flush();
+        for (final List<RType> result : query(
+                "SELECT fileset.id, id FROM Image WHERE fileset IN (SELECT fileset FROM Image WHERE id IN (:ids))",
+                new ParametersI().addIds(imageIds))) {
+            final long filesetId = ((RLong) result.get(0)).getValue();
+            final long imageId = ((RLong) result.get(1)).getValue();
+            localRepo.assertFilesetHasImage(filesetId, imageId);
+            if (parsedOptions.hasOption('f')) {
+                localRepo.assertWantImage(imageId);
             }
-        } catch (ServerError se) {
-            LOGGER.fatal(se, "cannot use query service");
-            System.exit(3);
+        }
+        System.out.println(" done");
+
+        /* map the files of the targeted images */
+        for (final Long imageId : localRepo.getWantedImages()) {
+            if (localRepo.isFsImage(imageId)) {
+                if (parsedOptions.hasOption('b') || parsedOptions.hasOption('c')) {
+                    final UsedFilesResponse usedFiles = requests.submit("determining files used by image " + imageId,
+                            new UsedFilesRequest(imageId), UsedFilesResponse.class);
+                    if (!parsedOptions.hasOption('c')) {
+                        localRepo.assertImageHasFiles(imageId, usedFiles.binaryFilesThisSeries);
+                    }
+                    if (!parsedOptions.hasOption('b')) {
+                        localRepo.assertImageHasFiles(imageId, usedFiles.companionFilesThisSeries);
+                    }
+                } else {
+                    System.out.print("determining files used by image " + imageId + "...");
+                    System.out.flush();
+                    for (final List<RType> result : query(
+                            "SELECT originalFile.id FROM FilesetEntry WHERE fileset.id = :id",
+                            new ParametersI().addId(imageId))) {
+                        final long fileId = ((RLong) result.get(0)).getValue();
+                        localRepo.assertImageHasFile(imageId, fileId);
+                    }
+                    System.out.println(" done");
+                }
+            } else {
+                final UsedFilesResponsePreFs usedFiles = requests.submit("determining files used by image " + imageId,
+                        new UsedFilesRequest(imageId), UsedFilesResponsePreFs.class);
+                    if (!parsedOptions.hasOption('c')) {
+                        localRepo.assertImageHasFiles(imageId, usedFiles.archivedFiles);
+                    }
+                    if (!parsedOptions.hasOption('b')) {
+                        localRepo.assertImageHasFiles(imageId, usedFiles.companionFiles);
+                    }
+            }
         }
 
+        /* all done with the server */
         GATEWAY.disconnect();
+
+        for (final long fileId : localRepo.getWantedFiles()) {
+            System.out.println("want file #" + fileId);
+        }
     }
 }

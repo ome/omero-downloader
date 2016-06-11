@@ -34,7 +34,7 @@ import java.util.Set;
  * Manage the local mirror of the server repository and its symbolic links.
  * @author m.t.b.carroll@dundee.ac.uk
  */
-public class RepositoryManager {
+public class RelationshipManager {
     private final SetMultimap<Long, Long> filesOfImage = HashMultimap.create();
     private final SetMultimap<Long, Long> imagesOfFileset = HashMultimap.create();
     private final Map<Long, Long> filesetOfImage = new HashMap<>();

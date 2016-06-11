@@ -21,6 +21,7 @@ package org.openmicroscopy.client.downloader;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
+import com.google.common.collect.Ordering;
 
 import java.util.List;
 import java.util.regex.Matcher;
@@ -66,6 +67,7 @@ public class Download {
     private static final Pattern TARGET_PATTERN = Pattern.compile("([A-Z][A-Za-z]*):(\\d+(,\\d+)*)");
 
     private static SecurityContext ctx;
+    private static IQueryPrx iQuery = null;
     private static RequestManager requests;
 
     /**
@@ -155,14 +157,12 @@ public class Download {
      */
     private static Iterable<List<RType>> query(String hql, Parameters parameters) {
         try {
-            return GATEWAY.getQueryService(ctx).projection(hql, parameters);
-        } catch (DSOutOfServiceException oose) {
-            LOGGER.fatal(oose, "cannot access query service");
+            return iQuery.projection(hql, parameters);
         } catch (ServerError se) {
             LOGGER.fatal(se, "cannot use query service");
+            System.exit(3);
+            return null;
         }
-        System.exit(3);
-        return null;
     }
 
     /**
@@ -178,6 +178,12 @@ public class Download {
         }
         openGateway(parsedOptions);
 
+        try {
+            iQuery = GATEWAY.getQueryService(ctx);
+        } catch (DSOutOfServiceException oose) {
+            LOGGER.fatal(oose, "cannot access query service");
+            System.exit(3);
+        }
         /* determine which objects are targeted */
         final Requests.FindChildrenBuilder finder = Requests.findChildren().childType(Image.class).stopBefore(Roi.class);
         final List<String> targetArgs = parsedOptions.getArgList();
@@ -201,7 +207,6 @@ public class Download {
 
         /* find the images of those targets */
         final FoundChildren found = requests.submit("finding target images", finder.build(), FoundChildren.class);
-        IQueryPrx iQuery = null;
         final List<Long> imageIds = found.children.get(ome.model.core.Image.class.getName());
         if (CollectionUtils.isEmpty(imageIds)) {
             LOGGER.fatal(null, "no images found");
@@ -209,9 +214,9 @@ public class Download {
         }
 
         /* map the filesets of the targeted images */
-        final RepositoryManager localRepo = new RepositoryManager();
+        final RelationshipManager localRepo = new RelationshipManager();
         localRepo.assertWantImages(imageIds);
-        System.out.print("mapping fileset of images " + Joiner.on(", ").join(imageIds) + "...");
+        System.out.print("mapping fileset of images " + Joiner.on(", ").join(Ordering.natural().sortedCopy(imageIds)) + "...");
         System.out.flush();
         for (final List<RType> result : query(
                 "SELECT fileset.id, id FROM Image WHERE fileset IN (SELECT fileset FROM Image WHERE id IN (:ids))",
@@ -260,11 +265,22 @@ public class Download {
             }
         }
 
-        /* all done with the server */
-        GATEWAY.disconnect();
+        FileManager files = null;
+        try {
+             files = new FileManager(GATEWAY.getSharedResources(ctx).repositories(), iQuery);
+        } catch (DSOutOfServiceException oose) {
+            LOGGER.fatal(oose, "cannot access shared resources");
+            System.exit(3);
+        } catch (ServerError se) {
+            LOGGER.fatal(se, "cannot use shared resources");
+            System.exit(3);
+        }
 
         for (final long fileId : localRepo.getWantedFiles()) {
-            System.out.println("want file #" + fileId);
+            files.checkFile(fileId);
         }
+
+        /* all done with the server */
+        GATEWAY.disconnect();
     }
 }

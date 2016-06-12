@@ -23,6 +23,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Ordering;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -86,6 +87,7 @@ public class Download {
         options.addOption("b", "only-binary", false, "download only binary files");
         options.addOption("c", "only-companion", false, "download only companion files");
         options.addOption("f", "whole-fileset", false, "download whole fileset");
+        options.addOption("d", "base", true, "base directory for download");
         options.addOption("h", "help", false, "help");
 
         Integer exitCode = null;
@@ -276,8 +278,22 @@ public class Download {
             System.exit(3);
         }
 
+        LocalPaths paths = null;
+        try {
+            if (parsedOptions.hasOption('d')) {
+                paths = new LocalPaths(parsedOptions.getOptionValue('d'));
+            } else {
+                paths = new LocalPaths();
+            }
+        } catch (IOException ioe) {
+            LOGGER.fatal(ioe, "cannot access base download directory");
+            System.exit(3);
+        }
+
+        localRepo.ensureFilesetImageLinks(paths);
+
         for (final long fileId : localRepo.getWantedFiles()) {
-            files.checkFile(fileId);
+            files.checkFile(fileId, paths);
         }
 
         /* all done with the server */

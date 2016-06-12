@@ -128,4 +128,16 @@ public class RelationshipManager {
         final long fileset = filesetOfImage.get(image);
         return Sets.difference(imagesOfFileset.get(fileset), desiredImages).isEmpty();
     }
+
+    /**
+     * Ensure that filesets' images link to the actual images.
+     * @param paths the local paths provider
+     */
+    public void ensureFilesetImageLinks(LocalPaths paths) {
+        for (final Map.Entry<Long, Long> imageAndFileset : filesetOfImage.entrySet()) {
+            final Long image = imageAndFileset.getKey();
+            final Long fileset = imageAndFileset.getValue();
+            System.out.println("should link " + paths.getFilesetImage(fileset, image) + " to " + paths.getImage(image));
+        }
+    }
 }

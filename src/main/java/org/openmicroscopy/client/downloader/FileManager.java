@@ -56,7 +56,7 @@ public class FileManager {
         this.iQuery = iQuery;
     }
 
-    public void checkFile(long fileId) {
+    public void checkFile(long fileId, LocalPaths paths) {
         OriginalFile file = null;
         try {
             file = (OriginalFile) iQuery.get("OriginalFile", fileId);
@@ -81,8 +81,8 @@ public class FileManager {
             System.exit(3);
         }
         try {
-            System.out.println("found file " + file.getPath().getValue() + file.getName().getValue() + " size " + rfs.size() +
-                    " in repository " + repoId);
+            System.out.println("chosen download target " +
+                    paths.getFile(repoId, file.getPath().getValue(), file.getName().getValue()));
             rfs.close();
         } catch (ServerError se) {
             LOGGER.fatal(se, "failed to access file " + fileId);

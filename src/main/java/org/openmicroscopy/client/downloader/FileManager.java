@@ -22,6 +22,7 @@ package org.openmicroscopy.client.downloader;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+
 import omero.ServerError;
 import omero.api.IQueryPrx;
 import omero.api.RawFileStorePrx;
@@ -40,15 +41,17 @@ public class FileManager {
     private static final Logger LOGGER = new SimpleLogger();
 
     private final Map<String, RepositoryPrx> repos = new HashMap<>();
+    private final Map<RepositoryPrx, Long> repoIds = new HashMap<>();
     private final IQueryPrx iQuery;
 
-    FileManager(RepositoryMap repositories, IQueryPrx iQuery) {
+    public FileManager(RepositoryMap repositories, IQueryPrx iQuery) {
         final Iterator<OriginalFile> descriptions = repositories.descriptions.iterator();
         final Iterator<RepositoryPrx> proxies = repositories.proxies.iterator();
         while (descriptions.hasNext() && proxies.hasNext()) {
             final OriginalFile description = descriptions.next();
             final RepositoryPrx proxy = proxies.next();
             this.repos.put(description.getHash().getValue(), proxy);
+            this.repoIds.put(proxy, description.getId().getValue());
         }
         this.iQuery = iQuery;
     }
@@ -63,9 +66,11 @@ public class FileManager {
         }
         /* repository of file is not mapped in OMERO model */
         RawFileStorePrx rfs = null;
+        Long repoId = null;
         for (final RepositoryPrx proxy : repos.values()) {
             try {
                 rfs = proxy.fileById(fileId);
+                repoId = repoIds.get(proxy);
                 break;
             } catch (ServerError se) {
                 /* try the next repository */
@@ -76,7 +81,8 @@ public class FileManager {
             System.exit(3);
         }
         try {
-            System.out.println("found file " + file.getPath().getValue() + file.getName().getValue() + " size " + rfs.size());
+            System.out.println("found file " + file.getPath().getValue() + file.getName().getValue() + " size " + rfs.size() +
+                    " in repository " + repoId);
             rfs.close();
         } catch (ServerError se) {
             LOGGER.fatal(se, "failed to access file " + fileId);

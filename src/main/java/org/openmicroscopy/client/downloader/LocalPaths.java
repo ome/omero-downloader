@@ -109,16 +109,6 @@ public class LocalPaths {
     }
 
     /**
-     * Get the local directory for the given image of the given fileset.
-     * @param filesetId the fileset ID
-     * @param imageId the image ID
-     * @return the image's local directory within the fileset
-     */
-    public File getFilesetImage(long filesetId, long imageId) {
-        return new File(base, getNameOfFileset(filesetId) + File.separatorChar + getNameOfImage(imageId));
-    }
-
-    /**
      * Get the local directory for the given image.
      * @param imageId the image ID
      * @return the image's local directory

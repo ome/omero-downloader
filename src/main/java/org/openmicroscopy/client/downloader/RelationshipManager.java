@@ -24,6 +24,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -132,12 +136,22 @@ public class RelationshipManager {
     /**
      * Ensure that filesets' images link to the actual images.
      * @param paths the local paths provider
+     * @throws IOException if the links could not be ensured
      */
-    public void ensureFilesetImageLinks(LocalPaths paths) {
+    public void ensureFilesetImageLinks(LocalPaths paths) throws IOException {
         for (final Map.Entry<Long, Long> imageAndFileset : filesetOfImage.entrySet()) {
             final Long image = imageAndFileset.getKey();
             final Long fileset = imageAndFileset.getValue();
-            System.out.println("should link " + paths.getFilesetImage(fileset, image) + " to " + paths.getImage(image));
+            final Path filesetPath = paths.getFileset(fileset).toPath();
+            final Path imagePath = paths.getImage(image).toPath();
+            final Path filesetImagePath = filesetPath.resolve(imagePath.getFileName());
+            if (!Files.exists(filesetPath)) {
+                Files.createDirectory(filesetPath);
+            }
+            if (!Files.exists(filesetImagePath, LinkOption.NOFOLLOW_LINKS)) {
+                final Path imageFromFilesetPath = filesetPath.relativize(imagePath);
+                Files.createSymbolicLink(filesetImagePath, imageFromFilesetPath);
+            }
         }
     }
 }

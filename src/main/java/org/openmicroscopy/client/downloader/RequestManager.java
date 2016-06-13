@@ -25,6 +25,7 @@ import java.io.StringReader;
 
 import omero.cmd.CmdCallbackI;
 import omero.cmd.ERR;
+import omero.cmd.GraphException;
 import omero.cmd.Request;
 import omero.cmd.Response;
 import omero.gateway.Gateway;
@@ -99,7 +100,11 @@ public class RequestManager {
             System.out.println(" done");
             return desiredResponse;
         } catch (ClassCastException cce) {
-            System.out.println(" failed!  " + response);
+            if (response instanceof GraphException) {
+                System.out.println(" failed!  " + ((GraphException) response).message);
+            } else {
+                System.out.println(" failed!  " + response);
+            }
             System.exit(3);
             return null;
         }

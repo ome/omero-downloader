@@ -82,7 +82,7 @@ public class FileManager {
         }
         try {
             System.out.println("chosen download target " +
-                    paths.getFile(repoId, file.getPath().getValue(), file.getName().getValue()));
+                    paths.getFile(paths.getRepository(repoId), file.getPath().getValue(), file.getName().getValue()));
             rfs.close();
         } catch (ServerError se) {
             LOGGER.fatal(se, "failed to access file " + fileId);

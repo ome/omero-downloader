@@ -81,14 +81,22 @@ public class LocalPaths {
 
     /**
      * Get the local path for the given file.
-     * @param repoId the file's repository ID
+     * @param root the repository's root directory
      * @param path the file's path in the repository
      * @param name the file's name in the repository
      * @return the file's local path
      */
-    public File getFile(long repoId, String path, String name) {
-        final File repository = new File(base, getNameOfRepository(repoId));
-        return FsFile.concatenate(new FsFile(path), new FsFile(name)).transform(SANITIZER).toFile(repository);
+    public File getFile(File root, String path, String name) {
+        return FsFile.concatenate(new FsFile(path), new FsFile(name)).transform(SANITIZER).toFile(root);
+    }
+
+    /**
+     * Get the local directory for the given repository.
+     * @param repoId the repository ID
+     * @return the repository's local directory
+     */
+    public File getRepository(long repoId) {
+        return new File(base, getNameOfRepository(repoId));
     }
 
     /**

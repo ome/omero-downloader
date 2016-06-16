@@ -19,6 +19,12 @@
 
 package org.openmicroscopy.client.downloader;
 
+import com.google.common.math.IntMath;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -39,12 +45,21 @@ import omero.model.OriginalFile;
 public class FileManager {
 
     private static final Logger LOGGER = new SimpleLogger();
+    private static final int BATCH_SIZE = IntMath.checkedMultiply(16, 1048576);  // 16MiB
 
+    private final LocalPaths localPaths;
     private final Map<String, RepositoryPrx> repos = new HashMap<>();
     private final Map<RepositoryPrx, Long> repoIds = new HashMap<>();
     private final IQueryPrx iQuery;
 
-    public FileManager(RepositoryMap repositories, IQueryPrx iQuery) {
+    /**
+     * Construct a new file manager.
+     * @param localPaths the local paths provider
+     * @param repositories the repositories on the server
+     * @param iQuery the query service
+     */
+    public FileManager(LocalPaths localPaths, RepositoryMap repositories, IQueryPrx iQuery) {
+        this.localPaths = localPaths;
         final Iterator<OriginalFile> descriptions = repositories.descriptions.iterator();
         final Iterator<RepositoryPrx> proxies = repositories.proxies.iterator();
         while (descriptions.hasNext() && proxies.hasNext()) {
@@ -56,7 +71,14 @@ public class FileManager {
         this.iQuery = iQuery;
     }
 
-    public void checkFile(long fileId, LocalPaths paths) {
+    /**
+     * Download a file from the server.
+     * @param fallbackRFS the file store to use if none of the repositories offers the file
+     * @param fileId the ID of the file to download
+     * @return the local location of the downloaded file
+     */
+    public File download(RawFileStorePrx fallbackRFS, long fileId) {
+        /* obtain a handle to the remote file */
         OriginalFile file = null;
         try {
             file = (OriginalFile) iQuery.get("OriginalFile", fileId);
@@ -65,28 +87,78 @@ public class FileManager {
             System.exit(3);
         }
         /* repository of file is not mapped in OMERO model */
-        RawFileStorePrx rfs = null;
+        RawFileStorePrx repoRFS = null;
         Long repoId = null;
         for (final RepositoryPrx proxy : repos.values()) {
             try {
-                rfs = proxy.fileById(fileId);
+                repoRFS = proxy.fileById(fileId);
                 repoId = repoIds.get(proxy);
                 break;
             } catch (ServerError se) {
                 /* try the next repository */
             }
         }
-        if (rfs == null) {
-            LOGGER.fatal(file, "failed to obtain handle to file " + fileId);
-            System.exit(3);
+        if (repoRFS == null) {
+            /* possibly a repository field value of null */
+            try {
+                fallbackRFS.setFileId(fileId);
+                repoRFS = fallbackRFS;
+                repoId = 0L;
+            } catch (ServerError se) {
+                LOGGER.fatal(se, "failed to obtain handle to file " + fileId);
+                System.exit(3);
+            }
         }
+        /* download the file */
+        final File repoRoot = localPaths.getRepository(repoId);
+        final File target = localPaths.getFile(repoRoot, file.getPath().getValue(), file.getName().getValue());
         try {
-            System.out.println("chosen download target " +
-                    paths.getFile(paths.getRepository(repoId), file.getPath().getValue(), file.getName().getValue()));
-            rfs.close();
+            target.getParentFile().mkdirs();
+            long bytesDownloaded = target.exists() ? target.length() : 0;
+            long bytesRemaining = repoRFS.size() - bytesDownloaded;
+            if (bytesRemaining == 0) {
+                LOGGER.info(null, "already downloaded file " + fileId);
+            } else {
+                if (bytesDownloaded > 0) {
+                    System.out.print("resuming");
+                } else {
+                    System.out.print("commencing");
+                }
+                System.out.print(" download of file " + fileId + "...");
+                System.out.flush();
+                final OutputStream out = new FileOutputStream(target, true);
+                do {
+                    final int bytesToRead;
+                    if (bytesRemaining > BATCH_SIZE) {
+                        bytesToRead = BATCH_SIZE;
+                    } else {
+                        bytesToRead = (int) bytesRemaining;
+                    }
+                    out.write(repoRFS.read(bytesDownloaded, bytesToRead));
+                    bytesDownloaded += bytesToRead;
+                    bytesRemaining -= bytesToRead;
+                    System.out.print('.');
+                    System.out.flush();
+                } while (bytesRemaining > 0);
+                System.out.println(" done");
+                out.close();
+            }
         } catch (ServerError se) {
-            LOGGER.fatal(se, "failed to access file " + fileId);
+            /* download restriction */
+            System.out.println(" failed");
+        } catch (IOException ioe) {
+            LOGGER.fatal(ioe, "failed to write file " + target);
             System.exit(3);
+        } finally {
+            if (repoRFS != fallbackRFS) {
+                try {
+                    repoRFS.close();
+                } catch (ServerError se) {
+                    LOGGER.fatal(se, "failed to close remote file store");
+                    System.exit(3);
+                }
+            }
         }
+        return target;
     }
 }

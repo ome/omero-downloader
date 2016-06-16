@@ -56,6 +56,13 @@ public class LocalPaths {
     }
 
     /**
+     * @return if the base path is a directory
+     */
+    public boolean isBaseDirectory() {
+        return base.isDirectory();
+    }
+
+    /**
      * @param repoId a repository ID
      * @return the name of the corresponding repository directory
      */

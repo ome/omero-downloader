@@ -92,7 +92,7 @@ public class Download {
         options.addOption("f", "whole-fileset", false, "download whole fileset");
         options.addOption("d", "base", true, "base directory for download");
         options.addOption("l", "links", true, "links to create: none, fileset, image");
-        options.addOption("h", "help", false, "help");
+        options.addOption("h", "help", false, "show usage summary");
 
         Integer exitCode = null;
         CommandLine parsed = null;

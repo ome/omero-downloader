@@ -19,11 +19,10 @@
 
 package org.openmicroscopy.client.downloader;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Ordering;
-import java.io.File;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
@@ -266,7 +265,7 @@ public class Download {
         /* map the filesets of the targeted images */
         final RelationshipManager localRepo = new RelationshipManager(paths);
         localRepo.assertWantImages(imageIds);
-        System.out.print("mapping fileset of images " + Joiner.on(", ").join(Ordering.natural().sortedCopy(imageIds)) + "...");
+        System.out.print("mapping filesets of images...");
         System.out.flush();
         for (final List<RType> result : query(
                 "SELECT fileset.id, id FROM Image WHERE fileset IN (SELECT fileset FROM Image WHERE id IN (:ids))",
@@ -284,7 +283,7 @@ public class Download {
         final Set<Long> wantedImageIds = localRepo.getWantedImages();
         int totalCount = wantedImageIds.size();
         int currentCount = 1;
-        for (final Long imageId : wantedImageIds) {
+        for (final long imageId : Ordering.natural().immutableSortedCopy(wantedImageIds)) {
             System.out.print("(" + currentCount++ + "/" + totalCount + ") ");
             if (localRepo.isFsImage(imageId)) {
                 final UsedFilesResponse usedFiles = requests.submit("determining files used by image " + imageId,
@@ -332,7 +331,7 @@ public class Download {
         final Set<Long> wantedFileIds = localRepo.getWantedFiles();
         totalCount = wantedFileIds.size();
         currentCount = 1;
-        for (final long fileId : wantedFileIds) {
+        for (final long fileId : Ordering.natural().immutableSortedCopy(wantedFileIds)) {
             System.out.print("(" + currentCount++ + "/" + totalCount + ") ");
             final File file = files.download(rfs, fileId);
             if (file.isFile() && file.length() > 0) {

@@ -123,4 +123,13 @@ public class LocalPaths {
     public File getImage(long imageId) {
         return new File(base, getNameOfImage(imageId));
     }
+
+    /**
+     * Convert a model object name to a corresponding filename.
+     * @param name the name of the object
+     * @return the sanitized name suitable for the local filesystem
+     */
+    public String getSafeFilename(String name) {
+        return SANITIZER.apply(name);
+    }
 }

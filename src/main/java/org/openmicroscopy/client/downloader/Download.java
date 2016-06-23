@@ -30,11 +30,21 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import loci.common.DebugTools;
+import loci.common.services.DependencyException;
+import loci.common.services.ServiceException;
+import loci.common.services.ServiceFactory;
+import loci.formats.FormatException;
+import loci.formats.FormatReader;
+import loci.formats.ome.OMEXMLMetadata;
+import loci.formats.services.OMEXMLService;
+
 import omero.RLong;
 import omero.RType;
 import omero.ServerError;
 import omero.api.IQueryPrx;
 import omero.api.RawFileStorePrx;
+import omero.api.RawPixelsStorePrx;
 import omero.cmd.FoundChildren;
 import omero.cmd.UsedFilesRequest;
 import omero.cmd.UsedFilesResponse;
@@ -48,6 +58,7 @@ import omero.gateway.util.Requests;
 import omero.log.Logger;
 import omero.log.SimpleLogger;
 import omero.model.Image;
+import omero.model.Pixels;
 import omero.model.Roi;
 import omero.sys.Parameters;
 import omero.sys.ParametersI;
@@ -59,6 +70,7 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * OMERO client for downloading data in bulk from the server.
@@ -72,6 +84,7 @@ public class Download {
 
     private static SecurityContext ctx;
     private static IQueryPrx iQuery = null;
+    private static OmeroReaderFactory remoteReaders;
     private static RequestManager requests;
 
     /**
@@ -125,11 +138,14 @@ public class Download {
         final String pass = parsedOptions.getOptionValue('w');
         final String key = parsedOptions.getOptionValue('k');
 
+        final int portNumber;
         if (host == null) {
             host = "localhost";
         }
         if (port == null) {
-            port = "4064";
+            portNumber = omero.constants.GLACIER2PORT.value;
+        } else {
+            portNumber = Integer.parseInt(port);
         }
 
         if (key == null) {
@@ -144,7 +160,7 @@ public class Download {
             user = key;
         }
 
-        final LoginCredentials credentials = new LoginCredentials(user, pass, host, Integer.parseInt(port));
+        final LoginCredentials credentials = new LoginCredentials(user, pass, host, portNumber);
         try {
             final ExperimenterData experimenter = GATEWAY.connect(credentials);
             ctx = new SecurityContext(experimenter.getGroupId());
@@ -152,6 +168,9 @@ public class Download {
             LOGGER.fatal(oose, "cannot log in to server");
             System.exit(3);
         }
+
+        final String sessionId = GATEWAY.getSessionId(GATEWAY.getLoggedInUser());
+        remoteReaders = new OmeroReaderFactory(host, portNumber, sessionId);
         requests = new RequestManager(GATEWAY, ctx, 250);
     }
 
@@ -176,6 +195,8 @@ public class Download {
      * @param argv the command-line options
      */
     public static void main(String argv[]) {
+        DebugTools.enableLogging("info");
+
         /* parse and validate the command-line options and connect to the OMERO server */
         final CommandLine parsedOptions = parseOptions(argv);
         if (parsedOptions.hasOption('b') && parsedOptions.hasOption('c')) {
@@ -319,8 +340,6 @@ public class Download {
             LOGGER.fatal(se, "cannot use shared resources");
             System.exit(3);
         }
-
-
         RawFileStorePrx rfs = null;
         try {
             rfs = GATEWAY.getRawFileService(ctx);
@@ -357,6 +376,72 @@ public class Download {
         } catch (IOException ioe) {
             LOGGER.fatal(ioe, "cannot create repository links");
             System.exit(3);
+        }
+
+        /* download the pixels and export as TIFF */
+        OMEXMLService omeXmlService = null;
+        try {
+            omeXmlService = new ServiceFactory().getInstance(OMEXMLService.class);
+        } catch (DependencyException de) {
+            LOGGER.fatal(de, "cannot access OME-XML service");
+            System.exit(3);
+        }
+        RawPixelsStorePrx store = null;
+        try {
+            store = GATEWAY.getPixelsStore(ctx);
+        } catch (DSOutOfServiceException oose) {
+            LOGGER.fatal(oose, "cannot access raw pixels store");
+            System.exit(3);
+        }
+        totalCount = wantedFileIds.size();
+        currentCount = 1;
+        for (final long imageId : wantedImageIds) {
+            final String countPrefix = "(" + currentCount++ + "/" + totalCount + ") ";
+            /* obtain the pixels instance for the image */
+            final String name;
+            final Pixels pixels;
+            try {
+                final Image image = (Image) iQuery.findByQuery(
+                        "FROM Image i JOIN FETCH i.pixels AS p JOIN FETCH p.dimensionOrder WHERE i.id = :id",
+                        new ParametersI().addId(imageId));
+                name = image.getName().getValue();
+                pixels = image.getPrimaryPixels();
+            } catch (ServerError se) {
+                LOGGER.error(se, "cannot use query service");
+                continue;
+            }
+            /* obtain the metadata for the image */
+            OMEXMLMetadata metadata = null;
+            try {
+                metadata = omeXmlService.createOMEXMLMetadata();
+            } catch (ServiceException se) {
+                LOGGER.fatal(se, "failed to create OME-XML metadata");
+                System.exit(3);
+            }
+            try (FormatReader remoteImage = remoteReaders.getReader()) {
+                remoteImage.setMetadataStore(metadata);
+                remoteImage.setId("omero:iid=" + imageId);
+            } catch (FormatException | IOException e) {
+                LOGGER.error(e, "cannot access image from server");
+                continue;
+            }
+            /* actually do the download and assembly */
+            try {
+                final String filename = StringUtils.isBlank(name) ? "image" : paths.getSafeFilename(name);
+                final File tiffFile = new File(paths.getImage(imageId), filename + ".ome.tiff");
+                final LocalPixels localPixels = new LocalPixels(pixels, store, tiffFile);
+                System.out.print(countPrefix);
+                localPixels.downloadTiles();
+                System.out.print(countPrefix);
+                localPixels.assembleTiles(metadata);
+            } catch (FormatException | IOException | ServerError e) {
+                LOGGER.error(e, "cannot assemble downloaded image");
+            }
+        }
+        try {
+            store.close();
+        } catch (ServerError se) {
+            LOGGER.error(se, "failed to close raw pixels store");
         }
 
         /* all done with the server */

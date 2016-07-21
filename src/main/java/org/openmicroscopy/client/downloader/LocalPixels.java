@@ -25,9 +25,7 @@ import java.io.File;
 import java.io.IOException;
 
 import loci.formats.FormatException;
-import loci.formats.meta.MetadataRetrieve;
-import loci.formats.out.OMETiffWriter;
-import loci.formats.out.TiffWriter;
+import loci.formats.FormatWriter;
 
 import omero.ServerError;
 import omero.api.RawPixelsStorePrx;
@@ -45,26 +43,26 @@ public class LocalPixels {
     private static final int TILES_PER_DOT = 64;  // affects write flush interval
 
     private final RawPixelsStorePrx rps;
-    private final File tileFile, tiffFile;
+    private final File tileFile;
     private final TileIterator tiles;
 
     /**
      * Construct a new image download and assembly job.
      * @param pixels the pixels instance for the image whose pixel data is to be downloaded
+     * @param tileFile the local file in which to store downloaded tiles from the remote image's pixel data
      * @param pixelsStore the pixels store from which to obtain pixel data from the server
-     * @param pixelsFile the TIFF file into which to assemble the pixel data
      * @throws ServerError if the pixel data could not be initialized on the server
      */
-    public LocalPixels(Pixels pixels, RawPixelsStorePrx pixelsStore, File pixelsFile) throws ServerError {
+    public LocalPixels(Pixels pixels, File tileFile, RawPixelsStorePrx pixelsStore) throws ServerError {
         this.rps = pixelsStore;
-        this.tiffFile = pixelsFile;
-        this.tileFile = new File(pixelsFile.getParent(), pixelsFile.getName() + ".tiles");
 
         this.rps.setPixelsId(pixels.getId().getValue(), false);
         final int[] tileSize = rps.getTileSize();
 
+        this.tileFile = tileFile;
+
         /* Must use tiles of the full image width because Bio-Formats appears unable to assemble correct TIFFs
-           from truly tile-based writing. TODO: Revisit this issue. */
+         * from truly tile-based writing. TODO: Revisit this issue. */
         tiles = new TileIterator(pixels.getSizeX().getValue(), pixels.getSizeY().getValue(), pixels.getSizeZ().getValue(),
                 pixels.getSizeC().getValue(), pixels.getSizeT().getValue(),
                 pixels.getSizeX().getValue()/*tileSize[0]*/, tileSize[1],
@@ -73,14 +71,10 @@ public class LocalPixels {
 
     /**
      * Download the tiles for the image from the OMERO server.
-     * @throws ServerError if the pixel data could not be retrieved
      * @throws IOException if the writing of the tiles failed
+     * @throws ServerError if the pixel data could not be retrieved
      */
-    public void downloadTiles() throws ServerError, IOException {
-        if (tiffFile.exists()) {
-            LOGGER.info(null, "already downloaded pixels " + rps.getPixelsId());
-            return;
-        }
+    public void downloadTiles() throws IOException, ServerError {
         int tileCount = 0;
         for (final TileIterator.Tile tile : tiles) {
             tileCount++;
@@ -108,7 +102,7 @@ public class LocalPixels {
                 tileSizes[tileNumber] = tileIO.readInt();
             }
         }
-        System.out.print(" download of pixels " + rps.getPixelsId() + "..");
+        System.out.print(" download of pixels " + rps.getPixelsId() + "...");
         System.out.flush();
         int tileNumber = 0;
         for (final TileIterator.Tile tile : tiles) {
@@ -122,7 +116,7 @@ public class LocalPixels {
                 tileSizes[tileNumber] = Ints.checkedCast(to - from);
                 tileIO.seek((tileNumber + 1) * FileIO.INT_BYTES);
                 tileIO.writeInt(tileSizes[tileNumber]);
-                if (tileNumber % TILES_PER_DOT == 0) {
+                if ((tileNumber + 1) % TILES_PER_DOT == 0) {
                     tileIO.flush();
                     System.out.print('.');
                     System.out.flush();
@@ -136,17 +130,13 @@ public class LocalPixels {
     }
 
     /**
-     * Assemble the downloaded tiles into a TIFF file.
-     * @param metadata the metadata describing the image to assemble
-     * @throws FormatException if the assembly of the tiles failed
-     * @throws IOException if the reading or assembly of the tiles failed
-     * @throws ServerError if the ID of the pixels instance could not be determined from the OMERO server
+     * Assemble the downloaded tiles into an image file. Closes the writer when it is finished.
+     * @param writer the Bio-Formats writer into which to save the tiles
+     * @throws FormatException if the tile writing failed
+     * @throws IOException if the tile reading or writing failed
+     * @throws ServerError if the pixels ID could not be obtained
      */
-    public void assembleTiles(MetadataRetrieve metadata) throws FormatException, IOException, ServerError {
-        if (!tileFile.exists() && tiffFile.exists()) {
-            LOGGER.info(null, "already assembled pixels " + rps.getPixelsId());
-            return;
-        }
+    public void writeTiles(FormatWriter writer) throws FormatException, IOException, ServerError {
         System.out.print("assembling pixels " + rps.getPixelsId() + "..");
         System.out.flush();
         final FileIO tileIO = new FileIO(tileFile, false);
@@ -154,13 +144,6 @@ public class LocalPixels {
         for (int tileNumber = 0; tileNumber < tileSizes.length; tileNumber++) {
             tileSizes[tileNumber] = tileIO.readInt();
         }
-        if (tiffFile.exists()) {
-            tiffFile.delete();
-        }
-        final TiffWriter writer = new OMETiffWriter();  // TODO: use standard TIFF writer then attach XML after
-        writer.setCompression(TiffWriter.COMPRESSION_J2K);
-        writer.setMetadataRetrieve(metadata);
-        writer.setId(tiffFile.getPath());
         int tileNumber = 0;
         int planeIndex = -1;
         TileIterator.Tile previousTile = null;
@@ -179,7 +162,6 @@ public class LocalPixels {
         }
         writer.close();
         tileIO.close();
-        tileFile.delete();
         System.out.println(" done");
     }
 }

@@ -27,6 +27,7 @@ import java.io.IOException;
 import ome.services.blitz.repo.path.FilePathRestrictionInstance;
 import ome.services.blitz.repo.path.FsFile;
 import ome.services.blitz.repo.path.MakePathComponentSafe;
+import omero.model.IObject;
 
 /**
  * Provide the local {@link File} objects.
@@ -131,5 +132,24 @@ public class LocalPaths {
      */
     public String getSafeFilename(String name) {
         return SANITIZER.apply(name);
+    }
+
+    /**
+     * Get the local path for the XML representation of the given model object.
+     * @param type the type of the model object
+     * @param id the ID of the model object
+     * @return the local path for the model object
+     */
+    public File getXmlObject(Class<? extends IObject> type, long id) {
+        final StringBuilder xmlFile = new StringBuilder();
+        xmlFile.append("OME-XML");
+        xmlFile.append(File.separatorChar);
+        xmlFile.append(type.getSimpleName());
+        xmlFile.append(File.separatorChar);
+        xmlFile.append(type.getSimpleName().toLowerCase());
+        xmlFile.append('-');
+        xmlFile.append(id);
+        xmlFile.append(".xml");
+        return new File(base, xmlFile.toString());
     }
 }

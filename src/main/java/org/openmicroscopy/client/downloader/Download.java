@@ -19,13 +19,20 @@
 
 package org.openmicroscopy.client.downloader;
 
+import com.google.common.base.Function;
 import com.google.common.base.Splitter;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -37,11 +44,14 @@ import loci.common.services.ServiceFactory;
 import loci.formats.FormatException;
 import loci.formats.FormatReader;
 import loci.formats.ome.OMEXMLMetadata;
+import loci.formats.out.OMETiffWriter;
+import loci.formats.out.TiffWriter;
 import loci.formats.services.OMEXMLService;
 
 import omero.RLong;
 import omero.RType;
 import omero.ServerError;
+import omero.api.IConfigPrx;
 import omero.api.IQueryPrx;
 import omero.api.RawFileStorePrx;
 import omero.api.RawPixelsStorePrx;
@@ -55,22 +65,27 @@ import omero.gateway.SecurityContext;
 import omero.gateway.exception.DSOutOfServiceException;
 import omero.gateway.model.ExperimenterData;
 import omero.gateway.util.Requests;
+import omero.grid.SharedResourcesPrx;
 import omero.log.Logger;
 import omero.log.SimpleLogger;
+import omero.model.Annotation;
+import omero.model.Dataset;
+import omero.model.Experiment;
+import omero.model.Folder;
+import omero.model.IObject;
 import omero.model.Image;
+import omero.model.Instrument;
 import omero.model.Pixels;
+import omero.model.Plate;
+import omero.model.Project;
 import omero.model.Roi;
-import omero.sys.Parameters;
+import omero.model.Screen;
 import omero.sys.ParametersI;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+
+import org.openmicroscopy.client.downloader.options.OptionParser;
 
 /**
  * OMERO client for downloading data in bulk from the server.
@@ -82,61 +97,29 @@ public class Download {
     private static final Gateway GATEWAY = new Gateway(LOGGER);
     private static final Pattern TARGET_PATTERN = Pattern.compile("([A-Z][A-Za-z]*):(\\d+(,\\d+)*)");
 
-    private static SecurityContext ctx;
+    private static OMEXMLService omeXmlService = null;
+    private static SecurityContext ctx = null;
+    private static IConfigPrx iConfig = null;
     private static IQueryPrx iQuery = null;
-    private static OmeroReaderFactory remoteReaders;
-    private static RequestManager requests;
-
-    /**
-     * Parse the command-line options.
-     * Aborts with help message if warranted.
-     * @param argv the command-line options
-     * @return the parsed options
-     */
-    private static CommandLine parseOptions(String argv[]) {
-        final Options options = new Options();
-        options.addOption("s", "server", true, "OMERO server host name");
-        options.addOption("p", "port", true, "OMERO server port number");
-        options.addOption("u", "user", true, "OMERO username");
-        options.addOption("w", "pass", true, "OMERO password");
-        options.addOption("k", "key", true, "OMERO session key");
-        options.addOption("b", "only-binary", false, "download only binary files");
-        options.addOption("c", "only-companion", false, "download only companion files");
-        options.addOption("f", "whole-fileset", false, "download whole fileset");
-        options.addOption("d", "base", true, "base directory for download");
-        options.addOption("l", "links", true, "links to create: none, fileset, image");
-        options.addOption("h", "help", false, "show usage summary");
-
-        Integer exitCode = null;
-        CommandLine parsed = null;
-        try {
-            final CommandLineParser parser = new DefaultParser();
-            parsed = parser.parse(options, argv);
-            if (parsed.hasOption('h')) {
-                exitCode = 1;
-            }
-        } catch (ParseException pe) {
-            exitCode = 2;
-        }
-        if (exitCode != null) {
-            final HelpFormatter formatter = new HelpFormatter();
-            formatter.printHelp("download Target:ID", options);
-            System.exit(exitCode);
-        }
-
-        return parsed;
-    }
+    private static RawFileStorePrx remoteFiles = null;
+    private static RawPixelsStorePrx remotePixels = null;
+    private static RequestManager requests = null;
+    private static FileManager files = null;
+    private static LocalPaths paths = null;
+    private static RelationshipManager localRepo = null;
+    private static XmlGenerator xmlGenerator = null;
+    private static OmeroReaderFactory remoteReaders = null;
 
     /**
      * Open the gateway to the OMERO server and connect to set the security context.
      * @param parsedOptions the command-line options
      */
-    private static void openGateway(CommandLine parsedOptions) {
-        String host = parsedOptions.getOptionValue('s');
-        String port = parsedOptions.getOptionValue('p');
-        String user = parsedOptions.getOptionValue('u');
-        final String pass = parsedOptions.getOptionValue('w');
-        final String key = parsedOptions.getOptionValue('k');
+    private static void openGateway(OptionParser.Chosen parsedOptions) {
+        String host = parsedOptions.getHostName();
+        String port = parsedOptions.getHostPort();
+        String user = parsedOptions.getUserName();
+        final String pass = parsedOptions.getPassword();
+        final String key = parsedOptions.getSessionKey();
 
         final int portNumber;
         if (host == null) {
@@ -168,83 +151,37 @@ public class Download {
             LOGGER.fatal(oose, "cannot log in to server");
             System.exit(3);
         }
-
         final String sessionId = GATEWAY.getSessionId(GATEWAY.getLoggedInUser());
         remoteReaders = new OmeroReaderFactory(host, portNumber, sessionId);
-        requests = new RequestManager(GATEWAY, ctx, 250);
     }
 
     /**
-     * Perform a query and return the results. Abort if the query fails.
-     * @param hql the Hibernate query string
-     * @param parameters values for the named parameters of the query
-     * @return the query results
+     * Set up various services that may be used by this downloader.
+     * Stateful services may be closed down with {@link #closeDownServices()}.
+     * @param baseDirectory the root of the repository into which to download
      */
-    private static Iterable<List<RType>> query(String hql, Parameters parameters) {
+    private static void setUpServices(String baseDirectory) {
         try {
-            return iQuery.projection(hql, parameters);
-        } catch (ServerError se) {
-            LOGGER.fatal(se, "cannot use query service");
+            omeXmlService = new ServiceFactory().getInstance(OMEXMLService.class);
+        } catch (DependencyException de) {
+            LOGGER.fatal(de, "cannot access OME-XML service");
             System.exit(3);
-            return null;
         }
-    }
 
-    /**
-     * Perform the download as instructed.
-     * @param argv the command-line options
-     */
-    public static void main(String argv[]) {
-        DebugTools.enableLogging("info");
-
-        /* parse and validate the command-line options and connect to the OMERO server */
-        final CommandLine parsedOptions = parseOptions(argv);
-        if (parsedOptions.hasOption('b') && parsedOptions.hasOption('c')) {
-            System.err.println("cannot combine multiple 'only' options");
-            System.exit(2);
-        }
-        final boolean isLinkFilesets, isLinkImages;
-        if (parsedOptions.hasOption('l')) {
-            switch (parsedOptions.getOptionValue('l')) {
-            case "none":
-                isLinkFilesets = false;
-                isLinkImages = false;
-                break;
-            case "fileset":
-                isLinkFilesets = true;
-                isLinkImages = false;
-                break;
-            case "image":
-                isLinkFilesets = false;
-                isLinkImages = true;
-                break;
-            default:
-                System.err.println("can link only: none, fileset, image (omit for both)");
-                System.exit(2);
-                isLinkFilesets = false;
-                isLinkImages = false;
-                break;
-            }
-        } else {
-            isLinkFilesets = true;
-            isLinkImages = true;
-        }
-        openGateway(parsedOptions);
-
+        SharedResourcesPrx sharedResources = null;
         try {
+            iConfig = GATEWAY.getConfigService(ctx);
             iQuery = GATEWAY.getQueryService(ctx);
+            remoteFiles = GATEWAY.getRawFileService(ctx);
+            remotePixels = GATEWAY.getPixelsStore(ctx);
+            sharedResources = GATEWAY.getSharedResources(ctx);
         } catch (DSOutOfServiceException oose) {
-            LOGGER.fatal(oose, "cannot access query service");
+            LOGGER.fatal(oose, "cannot access OMERO services");
             System.exit(3);
         }
 
-        LocalPaths paths = null;
         try {
-            if (parsedOptions.hasOption('d')) {
-                paths = new LocalPaths(parsedOptions.getOptionValue('d'));
-            } else {
-                paths = new LocalPaths();
-            }
+            paths = baseDirectory == null ? new LocalPaths() : new LocalPaths(baseDirectory);
         } catch (IOException ioe) {
             LOGGER.fatal(ioe, "cannot access base download directory");
             System.exit(3);
@@ -254,148 +191,89 @@ public class Download {
             System.exit(3);
         }
 
-        /* determine which objects are targeted */
-        final Requests.FindChildrenBuilder finder = Requests.findChildren().childType(Image.class).stopBefore(Roi.class);
-        final List<String> targetArgs = parsedOptions.getArgList();
-        if (targetArgs.isEmpty()) {
-            LOGGER.fatal(null, "no download targets specified");
-            System.exit(2);
-        }
-        for (final String target : targetArgs) {
-            final Matcher matcher = TARGET_PATTERN.matcher(target);
-            if (matcher.matches()) {
-                finder.target(matcher.group(1));
-                final Iterable<String> ids = Splitter.on(',').split(matcher.group(2));
-                for (final String id : ids) {
-                    finder.id(Long.parseLong(id));
-                }
-            } else {
-                System.err.println("cannot parse Target:ids argument: " + target);
-                System.exit(2);
-            }
-        }
-
-        /* find the images of those targets */
-        final FoundChildren found = requests.submit("finding target images", finder.build(), FoundChildren.class);
-        final List<Long> imageIds = found.children.get(ome.model.core.Image.class.getName());
-        if (CollectionUtils.isEmpty(imageIds)) {
-            LOGGER.fatal(null, "no images found");
+        try {
+            files = new FileManager(paths, sharedResources.repositories(), iQuery);
+            xmlGenerator = new XmlGenerator(omeXmlService, iConfig, iQuery);
+        } catch (ServerError se) {
+            LOGGER.fatal(se, "failed to use services");
             System.exit(3);
         }
 
-        /* map the filesets of the targeted images */
-        final RelationshipManager localRepo = new RelationshipManager(paths);
-        localRepo.assertWantImages(imageIds);
-        System.out.print("mapping filesets of images...");
-        System.out.flush();
-        for (final List<RType> result : query(
-                "SELECT fileset.id, id FROM Image WHERE fileset IN (SELECT fileset FROM Image WHERE id IN (:ids))",
-                new ParametersI().addIds(imageIds))) {
-            final long filesetId = ((RLong) result.get(0)).getValue();
-            final long imageId = ((RLong) result.get(1)).getValue();
-            localRepo.assertFilesetHasImage(filesetId, imageId);
-            if (parsedOptions.hasOption('f')) {
-                localRepo.assertWantImage(imageId);
-            }
-        }
-        System.out.println(" done");
+        localRepo = new RelationshipManager(paths);
+        requests = new RequestManager(GATEWAY, ctx, 250);
+    }
 
+    /**
+     * Close down the stateful services that were set up by {@link #setUpServices(java.lang.String)}.
+     */
+    private static void closeDownServices() {
+        try {
+            remoteFiles.close();
+            remotePixels.close();
+        } catch (ServerError se) {
+            LOGGER.fatal(se, "failed to close OMERO services");
+            System.exit(3);
+        }
+    }
+
+    /**
+     * Download the originally uploaded image files.
+     * @param imageIds the IDs of the images whose files should be downloaded
+     * @param isBinary if to include the binary files
+     * @param isCompanion if to include the companion files
+     */
+    private static void downloadFiles(final Set<Long> imageIds, boolean isBinary, boolean isCompanion) {
         /* map the files of the targeted images */
-        final Set<Long> wantedImageIds = localRepo.getWantedImages();
-        int totalCount = wantedImageIds.size();
+        int totalCount = imageIds.size();
         int currentCount = 1;
-        for (final long imageId : Ordering.natural().immutableSortedCopy(wantedImageIds)) {
+        for (final long imageId : Ordering.natural().immutableSortedCopy(imageIds)) {
             System.out.print("(" + currentCount++ + "/" + totalCount + ") ");
             if (localRepo.isFsImage(imageId)) {
                 final UsedFilesResponse usedFiles = requests.submit("determining files used by image " + imageId,
                         new UsedFilesRequest(imageId), UsedFilesResponse.class);
-                if (!parsedOptions.hasOption('c')) {
+                if (isBinary) {
                     localRepo.assertImageHasFiles(imageId, usedFiles.binaryFilesThisSeries);
                 }
-                if (!parsedOptions.hasOption('b')) {
+                if (isCompanion) {
                     localRepo.assertImageHasFiles(imageId, usedFiles.companionFilesThisSeries);
                 }
             } else {
                 final UsedFilesResponsePreFs usedFiles = requests.submit("determining files used by image " + imageId,
                         new UsedFilesRequest(imageId), UsedFilesResponsePreFs.class);
-                if (!parsedOptions.hasOption('c')) {
+                if (isBinary) {
                     final Set<Long> binaryFiles = new HashSet<>(usedFiles.archivedFiles);
                     binaryFiles.removeAll(usedFiles.companionFiles);
                     localRepo.assertImageHasFiles(imageId, binaryFiles);
                 }
-                if (!parsedOptions.hasOption('b')) {
+                if (isCompanion) {
                     localRepo.assertImageHasFiles(imageId, usedFiles.companionFiles);
                 }
             }
         }
 
         /* download the files */
-        FileManager files = null;
-        try {
-             files = new FileManager(paths, GATEWAY.getSharedResources(ctx).repositories(), iQuery);
-        } catch (DSOutOfServiceException oose) {
-            LOGGER.fatal(oose, "cannot access shared resources");
-            System.exit(3);
-        } catch (ServerError se) {
-            LOGGER.fatal(se, "cannot use shared resources");
-            System.exit(3);
-        }
-        RawFileStorePrx rfs = null;
-        try {
-            rfs = GATEWAY.getRawFileService(ctx);
-        } catch (DSOutOfServiceException oose) {
-            LOGGER.fatal(oose, "cannot access raw file store");
-            System.exit(3);
-        }
         final Set<Long> wantedFileIds = localRepo.getWantedFiles();
         totalCount = wantedFileIds.size();
         currentCount = 1;
         for (final long fileId : Ordering.natural().immutableSortedCopy(wantedFileIds)) {
             System.out.print("(" + currentCount++ + "/" + totalCount + ") ");
-            final File file = files.download(rfs, fileId);
+            final File file = files.download(remoteFiles, fileId);
             if (file.isFile() && file.length() > 0) {
                 localRepo.assertFileHasPath(fileId, file.toPath());
             }
         }
-        try {
-            rfs.close();
-        } catch (ServerError se) {
-            LOGGER.fatal(se, "failed to close remote file store");
-            System.exit(3);
-        }
+    }
 
-        /* create symbolic links to the downloaded files */
-        try {
-            if (isLinkFilesets) {
-                localRepo.ensureFilesetFileLinks();
-            }
-            if (isLinkImages) {
-                localRepo.ensureImageFileLinks();
-            }
-            localRepo.ensureFilesetImageLinks();
-        } catch (IOException ioe) {
-            LOGGER.fatal(ioe, "cannot create repository links");
-            System.exit(3);
-        }
-
-        /* download the pixels and export as TIFF */
-        OMEXMLService omeXmlService = null;
-        try {
-            omeXmlService = new ServiceFactory().getInstance(OMEXMLService.class);
-        } catch (DependencyException de) {
-            LOGGER.fatal(de, "cannot access OME-XML service");
-            System.exit(3);
-        }
-        RawPixelsStorePrx store = null;
-        try {
-            store = GATEWAY.getPixelsStore(ctx);
-        } catch (DSOutOfServiceException oose) {
-            LOGGER.fatal(oose, "cannot access raw pixels store");
-            System.exit(3);
-        }
-        totalCount = wantedFileIds.size();
-        currentCount = 1;
-        for (final long imageId : wantedImageIds) {
+    /**
+     * Write image data via Bio-Formats writers.
+     * @param imageIds the IDs of the images that should be exported
+     * @param isTiff if to write TIFF files
+     * @param isOmeTiff if to write OME-TIFF files
+     */
+    private static void exportImages(final Set<Long> imageIds, boolean isTiff, boolean isOmeTiff) {
+        final int totalCount = imageIds.size();
+        int currentCount = 1;
+        for (final long imageId : imageIds) {
             final String countPrefix = "(" + currentCount++ + "/" + totalCount + ") ";
             /* obtain the pixels instance for the image */
             final String name;
@@ -425,26 +303,235 @@ public class Download {
                 LOGGER.error(e, "cannot access image from server");
                 continue;
             }
-            /* actually do the download and assembly */
+            /* do the download and assembly */
+            final File imageDirectory = paths.getImage(imageId);
             try {
-                final String filename = StringUtils.isBlank(name) ? "image" : paths.getSafeFilename(name);
-                final File tiffFile = new File(paths.getImage(imageId), filename + ".ome.tiff");
-                final LocalPixels localPixels = new LocalPixels(pixels, store, tiffFile);
+                /* choose filenames and writers */
+                final File tileFile = new File(imageDirectory, "tiles.bin");
+                final LocalPixels localPixels = new LocalPixels(pixels, tileFile, remotePixels);
+                imageDirectory.mkdirs();
+                String filename = StringUtils.isBlank(name) ? "image" : paths.getSafeFilename(name);
+                final Map<File, TiffWriter> tiffFiles = new HashMap<>();
+                if (isTiff) {
+                    final TiffWriter writer = new TiffWriter();
+                    final String writeFile = writer.isThisType(filename) ? filename : filename + ".tiff";
+                    tiffFiles.put(new File(imageDirectory, writeFile), writer);
+                }
+                if (isOmeTiff) {
+                    final TiffWriter writer = new OMETiffWriter();
+                    final String writeFile = writer.isThisType(filename) ? filename : filename + ".ome.tiff";
+                    tiffFiles.put(new File(imageDirectory, writeFile), writer);
+                }
+                final Iterator<File> tiffFileIterator = tiffFiles.keySet().iterator();
+                while (tiffFileIterator.hasNext()) {
+                    final File tiffFile = tiffFileIterator.next();
+                    if (tiffFile.exists()) {
+                        if (tileFile.exists()) {
+                            /* may be a partial assembly so restart */
+                            tiffFile.delete();
+                        } else {
+                            /* already assembled */
+                            tiffFileIterator.remove();
+                        }
+                    }
+                }
                 System.out.print(countPrefix);
+                if (tiffFiles.isEmpty()) {
+                    System.out.println("already assembled image " + imageId);
+                    continue;
+                }
+                /* actually download and assemble */
                 localPixels.downloadTiles();
-                System.out.print(countPrefix);
-                localPixels.assembleTiles(metadata);
+                for (final Map.Entry<File, TiffWriter> tiffFileAndWriter : tiffFiles.entrySet()) {
+                    System.out.print(countPrefix);
+                    final File tiffFile = tiffFileAndWriter.getKey();
+                    final TiffWriter writer = tiffFileAndWriter.getValue();
+                    writer.setCompression(TiffWriter.COMPRESSION_J2K);
+                    writer.setMetadataRetrieve(metadata);
+                    writer.setId(tiffFile.getPath());
+                    localPixels.writeTiles(writer);
+                }
+                tileFile.delete();
             } catch (FormatException | IOException | ServerError e) {
                 LOGGER.error(e, "cannot assemble downloaded image");
             }
         }
-        try {
-            store.close();
-        } catch (ServerError se) {
-            LOGGER.error(se, "failed to close raw pixels store");
+    }
+
+    /**
+     * Determine the model classes selected for writing as XML.
+     * @param parsedOptions the selected command-line options
+     * @return the selected model classes, never {@code null}
+     */
+    private static Set<Class<? extends IObject>> getModelClasses(OptionParser.Chosen parsedOptions) {
+        final Set<Class<? extends IObject>> modelClasses = new HashSet<>();
+        modelClasses.add(Project.class);
+        modelClasses.add(Dataset.class);
+        modelClasses.add(Folder.class);
+        modelClasses.add(Experiment.class);
+        modelClasses.add(Instrument.class);
+        modelClasses.add(Image.class);
+        modelClasses.add(Screen.class);
+        modelClasses.add(Plate.class);
+        modelClasses.add(Annotation.class);
+        modelClasses.add(Roi.class);
+        final Iterator<Class<? extends IObject>> modelClassIterator = modelClasses.iterator();
+        while (modelClassIterator.hasNext()) {
+            final Class<? extends IObject> modelClass = modelClassIterator.next();
+            if (!parsedOptions.isObjectType(modelClass.getSimpleName().toLowerCase())) {
+                modelClassIterator.remove();
+            }
+        }
+        return modelClasses;
+    }
+
+    /**
+     * Write the given model objects as XML.
+     * @param objects the model objects to write
+     */
+    private static void writeXmlObjects(Map<String, List<Long>> objects) {
+        final List<Long> projectIds = objects.get(ome.model.containers.Project.class.getName());
+        final List<Long> datasetIds = objects.get(ome.model.containers.Dataset.class.getName());
+        final List<Long> folderIds = objects.get(ome.model.containers.Folder.class.getName());
+        final List<Long> experimentIds = objects.get(ome.model.experiment.Experiment.class.getName());
+        final List<Long> instrumentIds = objects.get(ome.model.acquisition.Instrument.class.getName());
+        final List<Long> imageIds = objects.get(ome.model.core.Image.class.getName());
+        final List<Long> screenIds = objects.get(ome.model.screen.Screen.class.getName());
+        final List<Long> plateIds = objects.get(ome.model.screen.Plate.class.getName());
+        final List<Long> roiIds = objects.get(ome.model.roi.Roi.class.getName());
+        final List<Long> annotationIds = FluentIterable.from(Lists.newArrayList(
+                objects.get(ome.model.annotations.BooleanAnnotation.class.getName()),
+                objects.get(ome.model.annotations.CommentAnnotation.class.getName()),
+                objects.get(ome.model.annotations.DoubleAnnotation.class.getName()),
+                // objects.get(ome.model.annotations.FileAnnotation.class.getName()),
+                objects.get(ome.model.annotations.ListAnnotation.class.getName()),
+                objects.get(ome.model.annotations.LongAnnotation.class.getName()),
+                objects.get(ome.model.annotations.MapAnnotation.class.getName()),
+                objects.get(ome.model.annotations.TagAnnotation.class.getName()),
+                objects.get(ome.model.annotations.TermAnnotation.class.getName()),
+                objects.get(ome.model.annotations.TimestampAnnotation.class.getName()),
+                objects.get(ome.model.annotations.XmlAnnotation.class.getName())))
+                .transformAndConcat(new Function<List<Long>, List<Long>>() {
+                    @Override
+                    public List<Long> apply(List<Long> ids) {
+                        return ids == null ? Collections.<Long>emptyList() : ids;
+                    }
+                }).toList();
+
+        if (CollectionUtils.isNotEmpty(roiIds)) {
+            paths.getXmlObject(Roi.class, 0).getParentFile().mkdirs();
+            xmlGenerator.writeRois(roiIds, new Function<Long, File>() {
+                @Override
+                public File apply(Long id) {
+                    return paths.getXmlObject(Roi.class, id);
+                }
+            });
+        }
+    }
+
+    /**
+     * Perform the download as instructed.
+     * @param argv the command-line options
+     */
+    public static void main(String argv[]) {
+        DebugTools.enableLogging("WARN");
+
+        /* parse and validate the command-line options and connect to the OMERO server */
+        final OptionParser.Chosen parsedOptions = OptionParser.parse(argv);
+        openGateway(parsedOptions);
+        setUpServices(parsedOptions.getBaseDirectory());
+
+        /* determine which objects are targeted */
+        Requests.FindChildrenBuilder finder = Requests.findChildren().childType(Image.class);
+        for (final Class<? extends IObject> classToFind : getModelClasses(parsedOptions)) {
+            finder.childType(classToFind);
+        }
+        final List<String> targetArgs = parsedOptions.getArguments();
+        if (targetArgs.isEmpty()) {
+            LOGGER.fatal(null, "no download targets specified");
+            System.exit(2);
+        }
+        for (final String target : targetArgs) {
+            final Matcher matcher = TARGET_PATTERN.matcher(target);
+            if (matcher.matches()) {
+                finder.target(matcher.group(1));
+                final Iterable<String> ids = Splitter.on(',').split(matcher.group(2));
+                for (final String id : ids) {
+                    finder.id(Long.parseLong(id));
+                }
+            } else {
+                System.err.println("cannot parse Target:ids argument: " + target);
+                System.exit(2);
+            }
+        }
+
+        /* find the images and other objects for those targets */
+        final FoundChildren found = requests.submit("finding target images", finder.build(), FoundChildren.class);
+        final List<Long> imageIds = found.children.get(ome.model.core.Image.class.getName());
+
+        if (CollectionUtils.isNotEmpty(imageIds)) {
+            /* map the filesets of the targeted images */
+            localRepo.assertWantImages(imageIds);
+            System.out.print("mapping filesets of images...");
+            System.out.flush();
+            try {
+                for (final List<RType> result : iQuery.projection(
+                        "SELECT fileset.id, id FROM Image WHERE fileset IN (SELECT fileset FROM Image WHERE id IN (:ids))",
+                        new ParametersI().addIds(imageIds))) {
+                    final long filesetId = ((RLong) result.get(0)).getValue();
+                    final long imageId = ((RLong) result.get(1)).getValue();
+                    localRepo.assertFilesetHasImage(filesetId, imageId);
+                    if (parsedOptions.isAllFileset()) {
+                        localRepo.assertWantImage(imageId);
+                    }
+                }
+            } catch (ServerError se) {
+                LOGGER.fatal(se, "cannot use query service");
+                System.exit(3);
+            }
+            final Set<Long> wantedImageIds = localRepo.getWantedImages();
+            System.out.println(" done");
+
+            if (parsedOptions.isFileType("binary") || parsedOptions.isFileType("companion")) {
+                /* download the image files from the remote repository */
+                downloadFiles(wantedImageIds, parsedOptions.isFileType("binary"), parsedOptions.isFileType("companion"));
+
+                /* create symbolic links to the downloaded files */
+                try {
+                    if (parsedOptions.isLinkType("fileset")) {
+                        localRepo.ensureFilesetFileLinks();
+                    }
+                    if (parsedOptions.isLinkType("image")) {
+                        localRepo.ensureImageFileLinks();
+                    }
+                    localRepo.ensureFilesetImageLinks();
+                } catch (IOException ioe) {
+                    LOGGER.fatal(ioe, "cannot create repository links");
+                    System.exit(3);
+                }
+            }
+
+            if (parsedOptions.isFileType("tiff") || parsedOptions.isFileType("ome-tiff")) {
+                /* export the images via Bio-Formats */
+                exportImages(wantedImageIds, parsedOptions.isFileType("tiff"), parsedOptions.isFileType("ome-tiff"));
+            }
+
+            if (parsedOptions.isFileType("ome-xml")) {
+                LOGGER.error(null, "OME-XML export is not yet implemented");
+            }
+        }
+
+        final Map<String, List<Long>> toWrite = new HashMap<>(found.children);
+        if (!parsedOptions.isObjectType("image")) {
+            toWrite.remove(ome.model.core.Image.class.getName());
+        }
+        if (!toWrite.isEmpty()) {
+            /* write model objects as XML */
+            writeXmlObjects(toWrite);
         }
 
         /* all done with the server */
+        closeDownServices();
         GATEWAY.disconnect();
     }
 }

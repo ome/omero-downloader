@@ -152,7 +152,7 @@
   <repositories>
       <repository>
         <id>ome.maven</id>
-        <url>http://artifacts.openmicroscopy.org/artifactory/maven/</url>
+        <url>http://artifacts.openmicroscopy.org/artifactory/maven</url>
       </repository>
   </repositories>
 

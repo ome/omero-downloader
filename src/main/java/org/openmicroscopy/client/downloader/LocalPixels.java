@@ -21,11 +21,14 @@ package org.openmicroscopy.client.downloader;
 
 import com.google.common.primitives.Ints;
 
+import java.awt.Dimension;
 import java.io.File;
 import java.io.IOException;
 
 import loci.formats.FormatException;
 import loci.formats.FormatWriter;
+import loci.formats.out.TiffWriter;
+import loci.formats.tiff.IFD;
 
 import omero.ServerError;
 import omero.api.RawPixelsStorePrx;
@@ -44,6 +47,7 @@ public class LocalPixels {
 
     private final RawPixelsStorePrx rps;
     private final File tileFile;
+    private final Dimension tileSize;
     private final TileIterator tiles;
 
     /**
@@ -54,18 +58,17 @@ public class LocalPixels {
      * @throws ServerError if the pixel data could not be initialized on the server
      */
     public LocalPixels(Pixels pixels, File tileFile, RawPixelsStorePrx pixelsStore) throws ServerError {
-        this.rps = pixelsStore;
-
-        this.rps.setPixelsId(pixels.getId().getValue(), false);
-        final int[] tileSize = rps.getTileSize();
-
         this.tileFile = tileFile;
 
-        /* Must use tiles of the full image width because Bio-Formats appears unable to assemble correct TIFFs
-         * from truly tile-based writing. TODO: Revisit this issue. */
+        this.rps = pixelsStore;
+        this.rps.setPixelsId(pixels.getId().getValue(), false);
+
+        final int[] tileSizeArray = rps.getTileSize();
+        this.tileSize = new Dimension(tileSizeArray[0], tileSizeArray[1]);
+
         tiles = new TileIterator(pixels.getSizeX().getValue(), pixels.getSizeY().getValue(), pixels.getSizeZ().getValue(),
                 pixels.getSizeC().getValue(), pixels.getSizeT().getValue(),
-                pixels.getSizeX().getValue()/*tileSize[0]*/, tileSize[1],
+                tileSize.width, tileSize.height,
                 pixels.getDimensionOrder().getValue().getValue());
     }
 
@@ -153,7 +156,15 @@ public class LocalPixels {
                 planeIndex++;
             }
             final byte[] pixels = tileIO.readBytes(tileSizes[tileNumber]);
-            writer.saveBytes(planeIndex, pixels, tile.x, tile.y, tile.w, tile.h);
+            if (writer instanceof TiffWriter) {
+              /* TiffWriter requires IFD for tiled writing */
+              final IFD ifd = new IFD();
+              ifd.put(IFD.TILE_WIDTH, tileSize.width);
+              ifd.put(IFD.TILE_LENGTH, tileSize.height);
+              ((TiffWriter) writer).saveBytes(planeIndex, pixels, ifd, tile.x, tile.y, tile.w, tile.h);
+            } else {
+              writer.saveBytes(planeIndex, pixels, tile.x, tile.y, tile.w, tile.h);
+            }
             if (tileNumber % TILES_PER_DOT == 0) {
                 System.out.print('.');
                 System.out.flush();

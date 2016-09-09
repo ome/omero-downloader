@@ -48,10 +48,14 @@ import loci.formats.out.OMETiffWriter;
 import loci.formats.out.TiffWriter;
 import loci.formats.services.OMEXMLService;
 
+import ome.xml.model.primitives.Color;
+
+import omero.RInt;
 import omero.RLong;
 import omero.RType;
 import omero.ServerError;
 import omero.api.IConfigPrx;
+import omero.api.IPixelsPrx;
 import omero.api.IQueryPrx;
 import omero.api.RawFileStorePrx;
 import omero.api.RawPixelsStorePrx;
@@ -69,6 +73,7 @@ import omero.grid.SharedResourcesPrx;
 import omero.log.Logger;
 import omero.log.SimpleLogger;
 import omero.model.Annotation;
+import omero.model.Channel;
 import omero.model.Dataset;
 import omero.model.Experiment;
 import omero.model.Folder;
@@ -100,6 +105,7 @@ public class Download {
     private static OMEXMLService omeXmlService = null;
     private static SecurityContext ctx = null;
     private static IConfigPrx iConfig = null;
+    private static IPixelsPrx iPixels = null;
     private static IQueryPrx iQuery = null;
     private static RawFileStorePrx remoteFiles = null;
     private static RawPixelsStorePrx remotePixels = null;
@@ -171,6 +177,7 @@ public class Download {
         SharedResourcesPrx sharedResources = null;
         try {
             iConfig = GATEWAY.getConfigService(ctx);
+            iPixels = GATEWAY.getPixelsService(ctx);
             iQuery = GATEWAY.getQueryService(ctx);
             remoteFiles = GATEWAY.getRawFileService(ctx);
             remotePixels = GATEWAY.getPixelsStore(ctx);
@@ -302,6 +309,31 @@ public class Download {
             } catch (FormatException | IOException e) {
                 LOGGER.error(e, "cannot access image from server");
                 continue;
+            }
+            /* set channel colors as OmeroReader does not */
+            final long pixelsId = pixels.getId().getValue();
+            List<Channel> channels = null;
+            try {
+                channels = iPixels.retrievePixDescription(pixelsId).copyChannels();
+            } catch (ServerError se) {
+                LOGGER.error(se, "cannot access image metadata from server");
+                continue;
+            }
+            for (int channelIndex = 0; channelIndex < channels.size(); channelIndex++) {
+                final Channel channel = channels.get(channelIndex);
+                final RInt red = channel.getRed();
+                final RInt green = channel.getGreen();
+                final RInt blue = channel.getBlue();
+                final RInt alpha = channel.getAlpha();
+                if (red != null && green != null && blue != null) {
+                    final Color color;
+                    if (alpha == null) {
+                        color = new Color(red.getValue(), green.getValue(), blue.getValue(), 0xFF);
+                    } else {
+                        color = new Color(red.getValue(), green.getValue(), blue.getValue(), alpha.getValue());
+                    }
+                    metadata.setChannelColor(color, 0, channelIndex);
+                }
             }
             /* do the download and assembly */
             final File imageDirectory = paths.getImage(imageId);

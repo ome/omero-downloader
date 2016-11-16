@@ -34,8 +34,8 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <maven.compiler.source>1.7</maven.compiler.source>
     <maven.compiler.target>1.7</maven.compiler.target>
-    <omero.version>5.3.0-m3-${ice.version}-b29</omero.version>
-    <bioformats.version>5.2.1</bioformats.version>
+    <omero.version>5.3.0-m5-${ice.version}-b36</omero.version>
+    <bioformats.version>5.3.0-m2</bioformats.version>
   </properties>
 
   <dependencyManagement>

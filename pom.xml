@@ -34,7 +34,7 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <maven.compiler.source>1.7</maven.compiler.source>
     <maven.compiler.target>1.7</maven.compiler.target>
-    <omero.version>5.3.0-m5-${ice.version}-b36</omero.version>
+    <omero.version>5.3.0-m5-ice36-b36</omero.version>
     <bioformats.version>5.3.0-m2</bioformats.version>
   </properties>
 
@@ -122,32 +122,6 @@
         <artifactId>commons-lang3</artifactId>
     </dependency>
   </dependencies>
-
-  <profiles>
-    <profile>
-      <id>ice35</id>
-      <activation>
-        <property>
-          <name>!ice</name>
-        </property>
-      </activation>
-      <properties>
-        <ice.version>ice35</ice.version>
-      </properties>
-    </profile>
-    <profile>
-      <id>ice36</id>
-      <activation>
-        <property>
-          <name>ice</name>
-          <value>36</value>
-        </property>
-      </activation>
-      <properties>
-        <ice.version>ice36</ice.version>
-      </properties>
-    </profile>
-  </profiles>
 
   <repositories>
       <repository>

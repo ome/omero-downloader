@@ -34,7 +34,7 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <maven.compiler.source>1.7</maven.compiler.source>
     <maven.compiler.target>1.7</maven.compiler.target>
-    <omero.version>5.3.0-m5-ice36-b36</omero.version>
+    <omero.version>5.3.2-ice35-SNAPSHOT</omero.version>
     <bioformats.version>5.3.0-m2</bioformats.version>
   </properties>
 
@@ -125,8 +125,23 @@
 
   <repositories>
       <repository>
+        <id>ome.unstable</id>
+        <url>http://artifacts.openmicroscopy.org/artifactory/simple/ome.unstable</url>
+      </repository>
+      <repository>
         <id>ome.maven</id>
+        <id>OME Maven Artifactory</id>
         <url>http://artifacts.openmicroscopy.org/artifactory/maven</url>
+      </repository>
+      <repository>
+        <id>unidata</id>
+        <name>Unidata Repository</name>
+        <url>http://artifacts.unidata.ucar.edu/content/repositories/unidata-releases</url>
+      </repository>
+      <repository>
+        <id>zeroc</id>
+        <name>ZeroC Nexus Repository</name>
+        <url>http://repo.zeroc.com/nexus/content/repositories/releases</url>
       </repository>
   </repositories>
 

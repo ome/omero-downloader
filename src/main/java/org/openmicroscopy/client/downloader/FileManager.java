@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 University of Dundee & Open Microscopy Environment.
+ * Copyright (C) 2016-2017 University of Dundee & Open Microscopy Environment.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -65,8 +65,10 @@ public class FileManager {
         while (descriptions.hasNext() && proxies.hasNext()) {
             final OriginalFile description = descriptions.next();
             final RepositoryPrx proxy = proxies.next();
-            this.repos.put(description.getHash().getValue(), proxy);
-            this.repoIds.put(proxy, description.getId().getValue());
+            if (proxy != null) {
+                this.repos.put(description.getHash().getValue(), proxy);
+                this.repoIds.put(proxy, description.getId().getValue());
+            }
         }
         this.iQuery = iQuery;
     }

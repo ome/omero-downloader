@@ -34,7 +34,7 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <maven.compiler.source>1.7</maven.compiler.source>
     <maven.compiler.target>1.7</maven.compiler.target>
-    <omero.version>5.3.2-ice35-SNAPSHOT</omero.version>
+    <omero.version>5.3.1-ice36-b61</omero.version>
     <bioformats.version>5.3.0-m2</bioformats.version>
   </properties>
 
@@ -125,12 +125,8 @@
 
   <repositories>
       <repository>
-        <id>ome.unstable</id>
-        <url>http://artifacts.openmicroscopy.org/artifactory/simple/ome.unstable</url>
-      </repository>
-      <repository>
         <id>ome.maven</id>
-        <id>OME Maven Artifactory</id>
+        <name>OME Maven Artifactory</name>
         <url>http://artifacts.openmicroscopy.org/artifactory/maven</url>
       </repository>
       <repository>

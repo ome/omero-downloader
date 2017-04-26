@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 University of Dundee & Open Microscopy Environment.
+ * Copyright (C) 2016-2017 University of Dundee & Open Microscopy Environment.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -67,7 +67,6 @@ import omero.gateway.Gateway;
 import omero.gateway.LoginCredentials;
 import omero.gateway.SecurityContext;
 import omero.gateway.exception.DSOutOfServiceException;
-import omero.gateway.model.ExperimenterData;
 import omero.gateway.util.Requests;
 import omero.grid.SharedResourcesPrx;
 import omero.log.Logger;
@@ -151,12 +150,12 @@ public class Download {
 
         final LoginCredentials credentials = new LoginCredentials(user, pass, host, portNumber);
         try {
-            final ExperimenterData experimenter = GATEWAY.connect(credentials);
-            ctx = new SecurityContext(experimenter.getGroupId());
+            GATEWAY.connect(credentials);
         } catch (DSOutOfServiceException oose) {
             LOGGER.fatal(oose, "cannot log in to server");
             System.exit(3);
         }
+        ctx = new SecurityContext(-1);
         final String sessionId = GATEWAY.getSessionId(GATEWAY.getLoggedInUser());
         remoteReaders = new OmeroReaderFactory(host, portNumber, sessionId);
     }

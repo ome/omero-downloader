@@ -8,7 +8,7 @@
 
   <groupId>omero</groupId>
   <artifactId>downloader</artifactId>
-  <version>5.3.0</version>
+  <version>5.3.1</version>
 
   <name>OMERO.downloader</name>
   <description>OMERO client for downloading data in bulk from the server</description>
@@ -34,8 +34,8 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <maven.compiler.source>1.7</maven.compiler.source>
     <maven.compiler.target>1.7</maven.compiler.target>
-    <omero.version>5.3.1-ice36-b61</omero.version>
-    <bioformats.version>5.3.0-m2</bioformats.version>
+    <omero.version>5.3.3-ice36-b63</omero.version>
+    <bioformats.version>5.3.2</bioformats.version>
   </properties>
 
   <dependencyManagement>

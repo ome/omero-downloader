@@ -3,5 +3,5 @@ An OMERO client for downloading data in bulk from the server.
 Currently an experimental work in progress that may nonetheless serve as
 an illustrative example of a Java-based CLI application.
 
-Copyright (C) 2016 University of Dundee & Open Microscopy Environment.
+Copyright (C) 2016-2017 University of Dundee & Open Microscopy Environment.
 All rights reserved.

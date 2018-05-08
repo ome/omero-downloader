@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2017 University of Dundee & Open Microscopy Environment.
+ * Copyright (C) 2016-2018 University of Dundee & Open Microscopy Environment.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -149,14 +149,15 @@ public class Download {
         }
 
         final LoginCredentials credentials = new LoginCredentials(user, pass, host, portNumber);
+        String sessionId = null;
         try {
             GATEWAY.connect(credentials);
+            sessionId = GATEWAY.getSessionId(GATEWAY.getLoggedInUser());
         } catch (DSOutOfServiceException oose) {
             LOGGER.fatal(oose, "cannot log in to server");
             System.exit(3);
         }
         ctx = new SecurityContext(-1);
-        final String sessionId = GATEWAY.getSessionId(GATEWAY.getLoggedInUser());
         remoteReaders = new OmeroReaderFactory(host, portNumber, sessionId);
     }
 

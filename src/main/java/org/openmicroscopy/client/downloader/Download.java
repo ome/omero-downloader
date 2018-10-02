@@ -422,6 +422,15 @@ public class Download {
                     }
                 }).toList();
 
+        if (CollectionUtils.isNotEmpty(imageIds)) {
+            paths.getXmlObject(Image.class, 0).getParentFile().mkdirs();
+            xmlGenerator.writeImages(imageIds, new Function<Long, File>() {
+                @Override
+                public File apply(Long id) {
+                    return paths.getXmlObject(Image.class, id);
+                }
+            });
+        }
         if (CollectionUtils.isNotEmpty(roiIds)) {
             paths.getXmlObject(Roi.class, 0).getParentFile().mkdirs();
             xmlGenerator.writeRois(roiIds, new Function<Long, File>() {

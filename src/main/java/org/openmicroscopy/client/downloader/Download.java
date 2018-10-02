@@ -42,15 +42,11 @@ import loci.common.services.DependencyException;
 import loci.common.services.ServiceException;
 import loci.common.services.ServiceFactory;
 import loci.formats.FormatException;
-import loci.formats.FormatReader;
 import loci.formats.ome.OMEXMLMetadata;
 import loci.formats.out.OMETiffWriter;
 import loci.formats.out.TiffWriter;
 import loci.formats.services.OMEXMLService;
 
-import ome.xml.model.primitives.Color;
-
-import omero.RInt;
 import omero.RLong;
 import omero.RType;
 import omero.ServerError;
@@ -72,14 +68,12 @@ import omero.grid.SharedResourcesPrx;
 import omero.log.Logger;
 import omero.log.SimpleLogger;
 import omero.model.Annotation;
-import omero.model.Channel;
 import omero.model.Dataset;
 import omero.model.Experiment;
 import omero.model.Folder;
 import omero.model.IObject;
 import omero.model.Image;
 import omero.model.Instrument;
-import omero.model.Pixels;
 import omero.model.Plate;
 import omero.model.Project;
 import omero.model.Roi;
@@ -282,67 +276,45 @@ public class Download {
         int currentCount = 1;
         for (final long imageId : imageIds) {
             final String countPrefix = "(" + currentCount++ + "/" + totalCount + ") ";
-            /* obtain the pixels instance for the image */
-            final String name;
-            final Pixels pixels;
+             /* obtain the name and pixels ID for the image */
+            long pixelsId = -1;
             try {
-                final Image image = (Image) iQuery.findByQuery(
-                        "FROM Image i JOIN FETCH i.pixels AS p JOIN FETCH p.dimensionOrder WHERE i.id = :id",
+                final List<List<RType>> results = iQuery.projection(
+                        "SELECT id FROM Pixels WHERE image.id = :id",
                         new ParametersI().addId(imageId));
-                name = image.getName().getValue();
-                pixels = image.getPrimaryPixels();
+                if (CollectionUtils.isEmpty(results)) {
+                    LOGGER.error(null, "cannot retrieve pixels for image " + imageId);
+                    continue;
+                }
+                pixelsId = ((RLong) results.get(0).get(0)).getValue();
             } catch (ServerError se) {
-                LOGGER.error(se, "cannot use query service");
-                continue;
+                LOGGER.fatal(se, "cannot use query service");
+                System.exit(3);
             }
             /* obtain the metadata for the image */
             OMEXMLMetadata metadata = null;
             try {
                 metadata = omeXmlService.createOMEXMLMetadata();
+                metadata.createRoot();
+                xmlGenerator.writeImages(Collections.singletonList(imageId), metadata);
+                // Works around a curious legacy issue that may yet be fixed.
+                metadata.setPixelsBigEndian(true, 0);
+            } catch (ServerError se) {
+                LOGGER.fatal(se, "failed to fetch images from server");
+                System.exit(3);
             } catch (ServiceException se) {
                 LOGGER.fatal(se, "failed to create OME-XML metadata");
                 System.exit(3);
-            }
-            try (FormatReader remoteImage = remoteReaders.getReader()) {
-                remoteImage.setMetadataStore(metadata);
-                remoteImage.setId("omero:iid=" + imageId);
-            } catch (FormatException | IOException e) {
-                LOGGER.error(e, "cannot access image from server");
-                continue;
-            }
-            /* set channel colors as OmeroReader does not */
-            final long pixelsId = pixels.getId().getValue();
-            List<Channel> channels = null;
-            try {
-                channels = iPixels.retrievePixDescription(pixelsId).copyChannels();
-            } catch (ServerError se) {
-                LOGGER.error(se, "cannot access image metadata from server");
-                continue;
-            }
-            for (int channelIndex = 0; channelIndex < channels.size(); channelIndex++) {
-                final Channel channel = channels.get(channelIndex);
-                final RInt red = channel.getRed();
-                final RInt green = channel.getGreen();
-                final RInt blue = channel.getBlue();
-                final RInt alpha = channel.getAlpha();
-                if (red != null && green != null && blue != null) {
-                    final Color color;
-                    if (alpha == null) {
-                        color = new Color(red.getValue(), green.getValue(), blue.getValue(), 0xFF);
-                    } else {
-                        color = new Color(red.getValue(), green.getValue(), blue.getValue(), alpha.getValue());
-                    }
-                    metadata.setChannelColor(color, 0, channelIndex);
-                }
             }
             /* do the download and assembly */
             final File imageDirectory = paths.getImage(imageId);
             try {
                 /* choose filenames and writers */
                 final File tileFile = new File(imageDirectory, "tiles.bin");
-                final LocalPixels localPixels = new LocalPixels(pixels, tileFile, remotePixels);
+                final LocalPixels localPixels = new LocalPixels(pixelsId, metadata, tileFile, remotePixels);
                 imageDirectory.mkdirs();
-                String filename = StringUtils.isBlank(name) ? "image" : paths.getSafeFilename(name);
+                final String imageName = metadata.getImageName(0);
+                final String filename = StringUtils.isBlank(imageName) ? "image" : paths.getSafeFilename(imageName);
                 final Map<File, TiffWriter> tiffFiles = new HashMap<>();
                 if (isTiff) {
                     final TiffWriter writer = new TiffWriter();

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 University of Dundee & Open Microscopy Environment.
+ * Copyright (C) 2016-2018 University of Dundee & Open Microscopy Environment.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -40,6 +40,7 @@ import javax.xml.transform.TransformerException;
 
 import loci.common.services.ServiceException;
 import loci.common.xml.XMLTools;
+import loci.formats.meta.MetadataStore;
 import loci.formats.ome.OMEXMLMetadata;
 import loci.formats.services.OMEXMLService;
 
@@ -53,9 +54,11 @@ import omero.api.IQueryPrx;
 import omero.log.Logger;
 import omero.log.SimpleLogger;
 import omero.model.IObject;
+import omero.model.Image;
 import omero.model.Roi;
 import omero.sys.ParametersI;
 
+import org.openmicroscopy.client.downloader.metadata.ImageMetadata;
 import org.openmicroscopy.client.downloader.metadata.RoiMetadata;
 
 import org.w3c.dom.Document;
@@ -126,6 +129,35 @@ public class XmlGenerator {
     }
 
     /**
+     * Query the server for the given images.
+     * @param ids the IDs of the images to retrieve from OMERO
+     * @return the images, hydrated sufficiently for conversion to XML
+     * @throws ServerError if the images could not be retrieved
+     */
+    private List<Image> getImages(Collection<Long> ids) throws ServerError {
+      final List<Image> images = new ArrayList<>(ids.size());
+      for (final IObject result : iQuery.findAllByQuery("FROM Image i " +
+          "LEFT OUTER JOIN FETCH i.pixels AS p " +
+          "LEFT OUTER JOIN FETCH i.annotationLinks AS i_a_link " +
+          "LEFT OUTER JOIN FETCH i_a_link.child AS i_a " +
+          "LEFT OUTER JOIN FETCH i.rois AS r " +
+          "LEFT OUTER JOIN FETCH p.channels AS c " +
+          "LEFT OUTER JOIN FETCH i.instrument " +
+          "LEFT OUTER JOIN FETCH p.pixelsType " +
+          "LEFT OUTER JOIN FETCH p.planeInfo " +
+          "LEFT OUTER JOIN FETCH c.logicalChannel " +
+          "LEFT OUTER JOIN FETCH i.details.updateEvent " +
+          "LEFT OUTER JOIN FETCH p.details.updateEvent " +
+          "LEFT OUTER JOIN FETCH r.details.updateEvent " +
+          "LEFT OUTER JOIN FETCH c.details.updateEvent " +
+          "LEFT OUTER JOIN FETCH i_a.details.updateEvent " +
+          "WHERE i.id IN (:ids)", new ParametersI().addIds(ids))) {
+        images.add((Image) result);
+      }
+      return images;
+    }
+
+    /**
      * Query the server for the given ROIs.
      * @param ids the IDs of the ROIs to retrieve from OMERO
      * @return the ROIs, hydrated sufficiently for conversion to XML
@@ -182,6 +214,18 @@ public class XmlGenerator {
             }
         }
         return files;
+    }
+
+    /**
+     * Write the given images into the given metadata store.
+     * @param ids the IDs of the images to write
+     * @param destination the metadata store into which to write the images
+     * @throws ServerError if the ROIs could not be read
+     */
+    public void writeImages(List<Long> ids, MetadataStore destination) throws ServerError {
+        for (final List<Long> idBatch : Lists.partition(ids, BATCH_SIZE)) {
+            omeXmlService.convertMetadata(new ImageMetadata(lsidGetter, getImages(idBatch)), destination);
+        }
     }
 
     /**

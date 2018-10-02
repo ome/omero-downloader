@@ -27,6 +27,7 @@ import java.io.IOException;
 
 import loci.formats.FormatException;
 import loci.formats.FormatWriter;
+import loci.formats.meta.MetadataRetrieve;
 import loci.formats.out.TiffWriter;
 import loci.formats.tiff.IFD;
 
@@ -57,19 +58,23 @@ public class LocalPixels {
      * @param pixelsStore the pixels store from which to obtain pixel data from the server
      * @throws ServerError if the pixel data could not be initialized on the server
      */
-    public LocalPixels(Pixels pixels, File tileFile, RawPixelsStorePrx pixelsStore) throws ServerError {
+    public LocalPixels(long pixelsId, MetadataRetrieve metadata, File tileFile, RawPixelsStorePrx pixelsStore) throws ServerError {
         this.tileFile = tileFile;
 
         this.rps = pixelsStore;
-        this.rps.setPixelsId(pixels.getId().getValue(), false);
+        this.rps.setPixelsId(pixelsId, false);
 
         final int[] tileSizeArray = rps.getTileSize();
         this.tileSize = new Dimension(tileSizeArray[0], tileSizeArray[1]);
 
-        tiles = new TileIterator(pixels.getSizeX().getValue(), pixels.getSizeY().getValue(), pixels.getSizeZ().getValue(),
-                pixels.getSizeC().getValue(), pixels.getSizeT().getValue(),
+        tiles = new TileIterator(
+                metadata.getPixelsSizeX(0).getValue(),
+                metadata.getPixelsSizeY(0).getValue(),
+                metadata.getPixelsSizeZ(0).getValue(),
+                metadata.getPixelsSizeC(0).getValue(),
+                metadata.getPixelsSizeT(0).getValue(),
                 tileSize.width, tileSize.height,
-                pixels.getDimensionOrder().getValue().getValue());
+                metadata.getPixelsDimensionOrder(0).getValue());
     }
 
     /**

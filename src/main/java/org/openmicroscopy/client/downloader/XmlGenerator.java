@@ -20,6 +20,7 @@
 package org.openmicroscopy.client.downloader;
 
 import com.google.common.base.Function;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 
 import java.io.File;
@@ -46,7 +47,6 @@ import loci.formats.services.OMEXMLService;
 
 import ome.xml.model.OME;
 import ome.xml.model.OMEModelObject;
-import ome.xml.model.ROI;
 
 import omero.ServerError;
 import omero.api.IConfigPrx;
@@ -96,6 +96,22 @@ public class XmlGenerator {
             return getLsid(object);
         }
     };
+
+    /**
+     * Helper for writing OMERO model objects as locally as XML.
+     */
+    private interface ModelObjectWriter {
+        /**
+         * @return the name of the kind of objects that this writer can write
+         */
+        String getObjectsName();
+
+        /**
+         * Write the objects of the given IDs to the given files.
+         * @param toWrite the object IDs and corresponding files
+         */
+        void writeObjects(Map<Long, File> toWrite) throws IOException, ServerError, ServiceException, TransformerException;
+    }
 
     /**
      * Find the LSID of the given OMERO model object.
@@ -220,7 +236,7 @@ public class XmlGenerator {
      * Write the given images into the given metadata store.
      * @param ids the IDs of the images to write
      * @param destination the metadata store into which to write the images
-     * @throws ServerError if the ROIs could not be read
+     * @throws ServerError if the images could not be read
      */
     public void writeImages(List<Long> ids, MetadataStore destination) throws ServerError {
         for (final List<Long> idBatch : Lists.partition(ids, BATCH_SIZE)) {
@@ -229,17 +245,72 @@ public class XmlGenerator {
     }
 
     /**
+     * Write the given images locally as XML.
+     * @param ids the IDs of the images to write
+     * @param destinations how to determine the files into which to write the images
+     */
+    public void writeImages(List<Long> ids, Function<Long, File> destinations) {
+        writeElements(ids, destinations, new ModelObjectWriter() {
+            @Override
+            public String getObjectsName() {
+                return "images";
+            }
+
+            @Override
+            public void writeObjects(Map<Long, File> toWrite)
+                    throws IOException, ServerError, ServiceException, TransformerException {
+                for (final Image image : getImages(toWrite.keySet())) {
+                    final OMEXMLMetadata metadata = omeXmlService.createOMEXMLMetadata();
+                    metadata.createRoot();
+                    omeXmlService.convertMetadata(new ImageMetadata(lsidGetter, Collections.singletonList(image)), metadata);
+                    final OME omeElement = (OME) metadata.getRoot();
+                    final ome.xml.model.Image imageElement = omeElement.getImage(0);
+                    writeElement(imageElement, toWrite.get(image.getId().getValue()));
+                }
+            }
+        });
+    }
+
+    /**
      * Write the given ROIs locally as XML.
      * @param ids the IDs of the ROIs to write
      * @param destinations how to determine the files into which to write the ROIs
      */
     public void writeRois(List<Long> ids, Function<Long, File> destinations) {
+        writeElements(ids, destinations, new ModelObjectWriter() {
+            @Override
+            public String getObjectsName() {
+                return "ROIs";
+            }
+
+            @Override
+            public void writeObjects(Map<Long, File> toWrite)
+                    throws IOException, ServerError, ServiceException, TransformerException {
+                for (final Roi roi : getRois(toWrite.keySet())) {
+                    final OMEXMLMetadata xmlMeta = omeXmlService.createOMEXMLMetadata();
+                    xmlMeta.createRoot();
+                    omeXmlService.convertMetadata(new RoiMetadata(lsidGetter, Collections.singletonList(roi)), xmlMeta);
+                    final OME omeElement = (OME) xmlMeta.getRoot();
+                    final ome.xml.model.ROI roiElement = omeElement.getROI(0);
+                    writeElement(roiElement, toWrite.get(roi.getId().getValue()));
+                }
+            }
+        });
+    }
+
+    /**
+     * Write the given model objects locally as XML.
+     * @param ids the IDs of the objects to write
+     * @param destinations how to determine the files into which to write the ROIs
+     * @param objectWriter the helper that does the actual class-specific writing
+     */
+    private void writeElements(List<Long> ids, Function<Long, File> destinations, ModelObjectWriter objectWriter) {
         final Map<Long, File> files = getFileMap(ids, destinations);
         if (files.isEmpty()) {
-            System.out.println("written ROIs as XML, already have " + ids.size());
+            System.out.println("written " + objectWriter.getObjectsName() +" as XML, already have " + ids.size());
             return;
         }
-        System.out.print("writing ROIs as XML, need " + ids.size());
+        System.out.print("writing " + objectWriter.getObjectsName() +" as XML, need " + ids.size());
         final int alreadyHave = ids.size() - files.size();
         if (alreadyHave > 0) {
             System.out.print(", already have " + alreadyHave);
@@ -249,19 +320,16 @@ public class XmlGenerator {
             for (final List<Long> idBatch : Lists.partition(ids, BATCH_SIZE)) {
                 System.out.print('.');
                 System.out.flush();
-                for (final Roi roi : getRois(idBatch)) {
-                    final OMEXMLMetadata xmlMeta = omeXmlService.createOMEXMLMetadata();
-                    xmlMeta.createRoot();
-                    omeXmlService.convertMetadata(new RoiMetadata(lsidGetter, Collections.singletonList(roi)), xmlMeta);
-                    final OME omeElement = (OME) xmlMeta.getRoot();
-                    final ROI roiElement = omeElement.getROI(0);
-                    writeElement(roiElement, files.get(roi.getId().getValue()));
+                final ImmutableMap.Builder<Long, File> toWrite = ImmutableMap.builder();
+                for (final Long id : idBatch) {
+                    toWrite.put(id, files.get(id));
                 }
+                objectWriter.writeObjects(toWrite.build());
             }
             System.out.println(" done");
         } catch (IOException | ServerError | ServiceException | TransformerException e) {
             System.out.println(" failed");
-            LOGGER.error(e, "failed to obtain ROIs and write as XML");
+            LOGGER.error(e, "failed to obtain " + objectWriter.getObjectsName() +" and write as XML");
         }
     }
 }

@@ -22,8 +22,10 @@ package org.openmicroscopy.client.downloader;
 import com.google.common.base.Function;
 import com.google.common.base.Splitter;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
+import com.google.common.collect.SetMultimap;
 
 import java.io.File;
 import java.io.IOException;
@@ -296,8 +298,10 @@ public class Download {
             try {
                 metadata = omeXmlService.createOMEXMLMetadata();
                 metadata.createRoot();
-                xmlGenerator.writeImages(Collections.singletonList(imageId), metadata);
-                // Works around a curious legacy issue that may yet be fixed.
+                final SetMultimap<Class<? extends IObject>, Long> referenced =
+                        xmlGenerator.writeImages(Collections.singletonList(imageId), metadata);
+                xmlGenerator.writeRois(ImmutableList.copyOf(referenced.get(Roi.class)), metadata);
+                /* TODO: Workaround for a curious legacy issue that may yet be fixed. */
                 metadata.setPixelsBigEndian(true, 0);
             } catch (ServerError se) {
                 LOGGER.fatal(se, "failed to fetch images from server");

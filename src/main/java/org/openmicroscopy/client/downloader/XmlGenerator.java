@@ -20,8 +20,10 @@
 package org.openmicroscopy.client.downloader;
 
 import com.google.common.base.Function;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.SetMultimap;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -31,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -55,7 +58,9 @@ import omero.log.Logger;
 import omero.log.SimpleLogger;
 import omero.model.IObject;
 import omero.model.Image;
+import omero.model.Mask;
 import omero.model.Roi;
+import omero.model.Shape;
 import omero.sys.ParametersI;
 
 import org.openmicroscopy.client.downloader.metadata.ImageMetadata;
@@ -244,12 +249,57 @@ public class XmlGenerator {
      * Write the given images into the given metadata store.
      * @param ids the IDs of the images to write
      * @param destination the metadata store into which to write the images
+     * @return IDs of objects referenced by the images, indexed by top-level object type
      * @throws ServerError if the images could not be read
      */
-    public void writeImages(List<Long> ids, MetadataStore destination) throws ServerError {
-        for (final List<Long> idBatch : Lists.partition(ids, BATCH_SIZE)) {
-            omeXmlService.convertMetadata(new ImageMetadata(lsidGetter, getImages(idBatch)), destination);
+    public SetMultimap<Class<? extends IObject>, Long> writeImages(List<Long> ids, MetadataStore destination) throws ServerError {
+        final SetMultimap<Class<? extends IObject>, Long> referenced = HashMultimap.create();
+        for (final List<Long> imageIdBatch : Lists.partition(ids, BATCH_SIZE)) {
+            final List<Image> images = getImages(imageIdBatch);
+            for (final Image image : images) {
+                /* Note references to ROIs. */
+                for (final Roi roi : image.copyRois()) {
+                    referenced.put(Roi.class, roi.getId().getValue());
+                }
+            }
+            omeXmlService.convertMetadata(new ImageMetadata(lsidGetter, images), destination);
         }
+        return referenced;
+    }
+
+    /**
+     * Write the given ROIs into the given metadata store.
+     * @param ids the IDs of the ROIs to write
+     * @param destination the metadata store into which to write the ROIs
+     * @return IDs of objects referenced by the ROIs, indexed by top-level object type
+     * @throws ServerError if the ROIs could not be read
+     */
+    public SetMultimap<Class<? extends IObject>, Long> writeRois(List<Long> ids, MetadataStore destination) throws ServerError {
+        final SetMultimap<Class<? extends IObject>, Long> referenced = HashMultimap.create();
+        for (final List<Long> roiIdBatch : Lists.partition(ids, BATCH_SIZE)) {
+            final List<Roi> rois = getRois(roiIdBatch);
+            for (final Roi roi : rois) {
+                /* TODO: Understand how to include Mask objects. */
+                if (roi.sizeOfShapes() > 0) {
+                    /* Omit any masks from the ROI's shapes. */
+                    boolean isChanged = false;
+                    final List<Shape> shapes = new ArrayList<>(roi.copyShapes());
+                    final Iterator<Shape> shapeIterator = shapes.iterator();
+                    while (shapeIterator.hasNext()) {
+                        if (shapeIterator.next() instanceof Mask) {
+                            shapeIterator.remove();
+                            isChanged = true;
+                        }
+                    }
+                    if (isChanged) {
+                        roi.clearShapes();
+                        roi.addAllShapeSet(shapes);
+                    }
+                }
+            }
+            omeXmlService.convertMetadata(new RoiMetadata(lsidGetter, rois), destination);
+            }
+        return referenced;
     }
 
     /**

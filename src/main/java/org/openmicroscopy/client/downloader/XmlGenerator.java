@@ -78,12 +78,12 @@ public class XmlGenerator {
     private static DocumentBuilder DOCUMENT_BUILDER = null;
 
     static {
-      try {
-        DOCUMENT_BUILDER = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-      } catch (ParserConfigurationException pce) {
-        LOGGER.fatal(pce, "cannot build XML documents");
-        System.exit(3);
-      }
+        try {
+            DOCUMENT_BUILDER = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+        } catch (ParserConfigurationException pce) {
+            LOGGER.fatal(pce, "cannot build XML documents");
+            System.exit(3);
+        }
     }
 
     private final OMEXMLService omeXmlService;
@@ -119,14 +119,14 @@ public class XmlGenerator {
      * @return the LSID for that object
      */
     private String getLsid(IObject object) {
-      String objectClass = object.getClass().getSimpleName();
-      final int lastChar = objectClass.length() - 1;
-      if (objectClass.charAt(lastChar) == 'I') {
-        objectClass = objectClass.substring(0, lastChar);
-      }
-      final long objectId = object.getId().getValue();
-      final long updateId = object.getDetails().getUpdateEvent().getId().getValue();
-      return String.format(format, objectClass, objectId, updateId);
+        String objectClass = object.getClass().getSimpleName();
+        final int lastChar = objectClass.length() - 1;
+        if (objectClass.charAt(lastChar) == 'I') {
+            objectClass = objectClass.substring(0, lastChar);
+        }
+        final long objectId = object.getId().getValue();
+        final long updateId = object.getDetails().getUpdateEvent().getId().getValue();
+        return String.format(format, objectClass, objectId, updateId);
     }
 
     /**
@@ -137,11 +137,11 @@ public class XmlGenerator {
      * @throws ServerError if the configuration service could not be used
      */
     public XmlGenerator(OMEXMLService omeXmlService, IConfigPrx iConfig, IQueryPrx iQuery) throws ServerError {
-      this.omeXmlService = omeXmlService;
-      this.iQuery = iQuery;
-      this.format = String.format("urn:lsid:%s:%%s:%s_%%s:%%s",
-          iConfig.getConfigValue("omero.db.authority"),
-          iConfig.getDatabaseUuid());
+        this.omeXmlService = omeXmlService;
+        this.iQuery = iQuery;
+        this.format = String.format("urn:lsid:%s:%%s:%s_%%s:%%s",
+                iConfig.getConfigValue("omero.db.authority"),
+                iConfig.getDatabaseUuid());
     }
 
     /**
@@ -151,26 +151,26 @@ public class XmlGenerator {
      * @throws ServerError if the images could not be retrieved
      */
     private List<Image> getImages(Collection<Long> ids) throws ServerError {
-      final List<Image> images = new ArrayList<>(ids.size());
-      for (final IObject result : iQuery.findAllByQuery("FROM Image i " +
-          "LEFT OUTER JOIN FETCH i.pixels AS p " +
-          "LEFT OUTER JOIN FETCH i.annotationLinks AS i_a_link " +
-          "LEFT OUTER JOIN FETCH i_a_link.child AS i_a " +
-          "LEFT OUTER JOIN FETCH i.rois AS r " +
-          "LEFT OUTER JOIN FETCH p.channels AS c " +
-          "LEFT OUTER JOIN FETCH i.instrument " +
-          "LEFT OUTER JOIN FETCH p.pixelsType " +
-          "LEFT OUTER JOIN FETCH p.planeInfo " +
-          "LEFT OUTER JOIN FETCH c.logicalChannel " +
-          "LEFT OUTER JOIN FETCH i.details.updateEvent " +
-          "LEFT OUTER JOIN FETCH p.details.updateEvent " +
-          "LEFT OUTER JOIN FETCH r.details.updateEvent " +
-          "LEFT OUTER JOIN FETCH c.details.updateEvent " +
-          "LEFT OUTER JOIN FETCH i_a.details.updateEvent " +
-          "WHERE i.id IN (:ids)", new ParametersI().addIds(ids))) {
-        images.add((Image) result);
-      }
-      return images;
+        final List<Image> images = new ArrayList<>(ids.size());
+        for (final IObject result : iQuery.findAllByQuery("FROM Image i " +
+                "LEFT OUTER JOIN FETCH i.pixels AS p " +
+                "LEFT OUTER JOIN FETCH i.annotationLinks AS i_a_link " +
+                "LEFT OUTER JOIN FETCH i_a_link.child AS i_a " +
+                "LEFT OUTER JOIN FETCH i.rois AS r " +
+                "LEFT OUTER JOIN FETCH p.channels AS c " +
+                "LEFT OUTER JOIN FETCH i.instrument " +
+                "LEFT OUTER JOIN FETCH p.pixelsType " +
+                "LEFT OUTER JOIN FETCH p.planeInfo " +
+                "LEFT OUTER JOIN FETCH c.logicalChannel " +
+                "LEFT OUTER JOIN FETCH i.details.updateEvent " +
+                "LEFT OUTER JOIN FETCH p.details.updateEvent " +
+                "LEFT OUTER JOIN FETCH r.details.updateEvent " +
+                "LEFT OUTER JOIN FETCH c.details.updateEvent " +
+                "LEFT OUTER JOIN FETCH i_a.details.updateEvent " +
+                "WHERE i.id IN (:ids)", new ParametersI().addIds(ids))) {
+            images.add((Image) result);
+        }
+        return images;
     }
 
     /**
@@ -180,21 +180,21 @@ public class XmlGenerator {
      * @throws ServerError if the ROIs could not be retrieved
      */
     private List<Roi> getRois(Collection<Long> ids) throws ServerError {
-      final List<Roi> rois = new ArrayList<>(ids.size());
-      for (final IObject result : iQuery.findAllByQuery("FROM Roi r " +
-          "LEFT OUTER JOIN FETCH r.shapes AS s " +
-          "LEFT OUTER JOIN FETCH r.annotationLinks AS r_a_link " +
-          "LEFT OUTER JOIN FETCH r_a_link.child AS r_a " +
-          "LEFT OUTER JOIN FETCH s.annotationLinks AS s_a_link " +
-          "LEFT OUTER JOIN FETCH s_a_link.child AS s_a " +
-          "LEFT OUTER JOIN FETCH r.details.updateEvent " +
-          "LEFT OUTER JOIN FETCH s.details.updateEvent " +
-          "LEFT OUTER JOIN FETCH r_a.details.updateEvent " +
-          "LEFT OUTER JOIN FETCH s_a.details.updateEvent " +
-          "WHERE r.id IN (:ids)", new ParametersI().addIds(ids))) {
-        rois.add((Roi) result);
-      }
-      return rois;
+        final List<Roi> rois = new ArrayList<>(ids.size());
+        for (final IObject result : iQuery.findAllByQuery("FROM Roi r " +
+                "LEFT OUTER JOIN FETCH r.shapes AS s " +
+                "LEFT OUTER JOIN FETCH r.annotationLinks AS r_a_link " +
+                "LEFT OUTER JOIN FETCH r_a_link.child AS r_a " +
+                "LEFT OUTER JOIN FETCH s.annotationLinks AS s_a_link " +
+                "LEFT OUTER JOIN FETCH s_a_link.child AS s_a " +
+                "LEFT OUTER JOIN FETCH r.details.updateEvent " +
+                "LEFT OUTER JOIN FETCH s.details.updateEvent " +
+                "LEFT OUTER JOIN FETCH r_a.details.updateEvent " +
+                "LEFT OUTER JOIN FETCH s_a.details.updateEvent " +
+                "WHERE r.id IN (:ids)", new ParametersI().addIds(ids))) {
+            rois.add((Roi) result);
+        }
+        return rois;
     }
 
     /**

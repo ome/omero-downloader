@@ -151,6 +151,9 @@ public class XmlGenerator {
      * @throws ServerError if the images could not be retrieved
      */
     private List<Image> getImages(Collection<Long> ids) throws ServerError {
+        if (ids.isEmpty()) {
+            return Collections.emptyList();
+        }
         final List<Image> images = new ArrayList<>(ids.size());
         for (final IObject result : iQuery.findAllByQuery("FROM Image i " +
                 "LEFT OUTER JOIN FETCH i.pixels AS p " +
@@ -180,6 +183,9 @@ public class XmlGenerator {
      * @throws ServerError if the ROIs could not be retrieved
      */
     private List<Roi> getRois(Collection<Long> ids) throws ServerError {
+        if (ids.isEmpty()) {
+            return Collections.emptyList();
+        }
         final List<Roi> rois = new ArrayList<>(ids.size());
         for (final IObject result : iQuery.findAllByQuery("FROM Roi r " +
                 "LEFT OUTER JOIN FETCH r.shapes AS s " +

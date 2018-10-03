@@ -155,7 +155,8 @@ public class XmlGenerator {
             return Collections.emptyList();
         }
         final List<Image> images = new ArrayList<>(ids.size());
-        for (final IObject result : iQuery.findAllByQuery("FROM Image i " +
+        for (final IObject result : iQuery.findAllByQuery(
+                "FROM Image i " +
                 "LEFT OUTER JOIN FETCH i.pixels AS p " +
                 "LEFT OUTER JOIN FETCH i.annotationLinks AS i_a_link " +
                 "LEFT OUTER JOIN FETCH i_a_link.child AS i_a " +
@@ -187,7 +188,8 @@ public class XmlGenerator {
             return Collections.emptyList();
         }
         final List<Roi> rois = new ArrayList<>(ids.size());
-        for (final IObject result : iQuery.findAllByQuery("FROM Roi r " +
+        for (final IObject result : iQuery.findAllByQuery(
+                "FROM Roi r " +
                 "LEFT OUTER JOIN FETCH r.shapes AS s " +
                 "LEFT OUTER JOIN FETCH r.annotationLinks AS r_a_link " +
                 "LEFT OUTER JOIN FETCH r_a_link.child AS r_a " +

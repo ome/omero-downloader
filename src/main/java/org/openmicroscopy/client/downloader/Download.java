@@ -109,7 +109,6 @@ public class Download {
     private static LocalPaths paths = null;
     private static RelationshipManager localRepo = null;
     private static XmlGenerator xmlGenerator = null;
-    private static OmeroReaderFactory remoteReaders = null;
 
     /**
      * Open the gateway to the OMERO server and connect to set the security context.
@@ -154,7 +153,6 @@ public class Download {
             System.exit(3);
         }
         ctx = new SecurityContext(-1);
-        remoteReaders = new OmeroReaderFactory(host, portNumber, sessionId);
     }
 
     /**

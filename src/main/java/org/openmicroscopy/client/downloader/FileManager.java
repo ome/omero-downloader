@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2017 University of Dundee & Open Microscopy Environment.
+ * Copyright (C) 2016-2018 University of Dundee & Open Microscopy Environment.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -19,8 +19,6 @@
 
 package org.openmicroscopy.client.downloader;
 
-import com.google.common.math.IntMath;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -38,6 +36,8 @@ import omero.log.Logger;
 import omero.log.SimpleLogger;
 import omero.model.OriginalFile;
 
+import com.google.common.math.IntMath;
+
 /**
  * Manage the remote and local locations of files.
  * @author m.t.b.carroll@dundee.ac.uk
@@ -47,19 +47,16 @@ public class FileManager {
     private static final Logger LOGGER = new SimpleLogger();
     private static final int BATCH_SIZE = IntMath.checkedMultiply(16, 1048576);  // 16MiB
 
-    private final LocalPaths localPaths;
     private final Map<String, RepositoryPrx> repos = new HashMap<>();
     private final Map<RepositoryPrx, Long> repoIds = new HashMap<>();
     private final IQueryPrx iQuery;
 
     /**
      * Construct a new file manager.
-     * @param localPaths the local paths provider
      * @param repositories the repositories on the server
      * @param iQuery the query service
      */
-    public FileManager(LocalPaths localPaths, RepositoryMap repositories, IQueryPrx iQuery) {
-        this.localPaths = localPaths;
+    public FileManager(RepositoryMap repositories, IQueryPrx iQuery) {
         final Iterator<OriginalFile> descriptions = repositories.descriptions.iterator();
         final Iterator<RepositoryPrx> proxies = repositories.proxies.iterator();
         while (descriptions.hasNext() && proxies.hasNext()) {
@@ -77,9 +74,9 @@ public class FileManager {
      * Download a file from the server.
      * @param fallbackRFS the file store to use if none of the repositories offers the file
      * @param fileId the ID of the file to download
-     * @return the local location of the downloaded file
+     * @param destination the destination of the download
      */
-    public File download(RawFileStorePrx fallbackRFS, long fileId) {
+    public void download(RawFileStorePrx fallbackRFS, long fileId, File destination) {
         /* obtain a handle to the remote file */
         OriginalFile file = null;
         try {
@@ -112,11 +109,9 @@ public class FileManager {
             }
         }
         /* download the file */
-        final File repoRoot = localPaths.getRepository(repoId);
-        final File target = localPaths.getFile(repoRoot, file.getPath().getValue(), file.getName().getValue());
         try {
-            target.getParentFile().mkdirs();
-            long bytesDownloaded = target.exists() ? target.length() : 0;
+            destination.getParentFile().mkdirs();
+            long bytesDownloaded = destination.exists() ? destination.length() : 0;
             long bytesRemaining = repoRFS.size() - bytesDownloaded;
             if (bytesRemaining == 0) {
                 LOGGER.info(null, "already downloaded file " + fileId);
@@ -128,7 +123,7 @@ public class FileManager {
                 }
                 System.out.print(" download of file " + fileId + "...");
                 System.out.flush();
-                final OutputStream out = new FileOutputStream(target, true);
+                final OutputStream out = new FileOutputStream(destination, true);
                 do {
                     final int bytesToRead;
                     if (bytesRemaining > BATCH_SIZE) {
@@ -149,7 +144,7 @@ public class FileManager {
             /* download restriction */
             System.out.println(" failed");
         } catch (IOException ioe) {
-            LOGGER.fatal(ioe, "failed to write file " + target);
+            LOGGER.fatal(ioe, "failed to write file " + destination);
             System.exit(3);
         } finally {
             if (repoRFS != fallbackRFS) {
@@ -161,6 +156,5 @@ public class FileManager {
                 }
             }
         }
-        return target;
     }
 }

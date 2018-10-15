@@ -23,12 +23,16 @@ import com.google.common.base.Function;
 import com.google.common.base.Splitter;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Sets;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -50,6 +54,7 @@ import loci.formats.out.TiffWriter;
 import loci.formats.services.OMEXMLService;
 
 import omero.RLong;
+import omero.RString;
 import omero.RType;
 import omero.ServerError;
 import omero.api.IConfigPrx;
@@ -107,7 +112,7 @@ public class Download {
     private static RequestManager requests = null;
     private static FileManager files = null;
     private static LocalPaths paths = null;
-    private static RelationshipManager localRepo = null;
+    private static LinkMaker links = null;
     private static XmlGenerator xmlGenerator = null;
 
     /**
@@ -181,8 +186,9 @@ public class Download {
             System.exit(3);
         }
 
+        final Map<String, Long> repositoryIds = getRepositoryIds();
         try {
-            paths = baseDirectory == null ? new LocalPaths() : new LocalPaths(baseDirectory);
+            paths = baseDirectory == null ? new LocalPaths(repositoryIds) : new LocalPaths(repositoryIds, baseDirectory);
         } catch (IOException ioe) {
             LOGGER.fatal(ioe, "cannot access base download directory");
             System.exit(3);
@@ -193,14 +199,14 @@ public class Download {
         }
 
         try {
-            files = new FileManager(paths, sharedResources.repositories(), iQuery);
+            files = new FileManager(sharedResources.repositories(), iQuery);
             xmlGenerator = new XmlGenerator(omeXmlService, iConfig, iQuery);
         } catch (ServerError se) {
             LOGGER.fatal(se, "failed to use services");
             System.exit(3);
         }
 
-        localRepo = new RelationshipManager(paths);
+        links = new LinkMaker(paths);
         requests = new RequestManager(GATEWAY, ctx, 250);
     }
 
@@ -218,50 +224,108 @@ public class Download {
     }
 
     /**
+     * @return the map of repository UUIDs to original file IDs
+     */
+    private static Map<String, Long> getRepositoryIds() {
+        List<List<RType>> results = null;
+        try {
+            results = iQuery.projection(
+                    "SELECT id, hash FROM OriginalFile WHERE hash IS NOT NULL AND mimetype = :repo",
+                    new ParametersI().add("repo", omero.rtypes.rstring("Repository")));
+            if (CollectionUtils.isEmpty(results)) {
+                LOGGER.error(null, "cannot retrieve repositories");
+                return Collections.emptyMap();
+            }
+        } catch (ServerError se) {
+            LOGGER.fatal(se, "cannot use query service");
+            System.exit(3);
+        }
+        final ImmutableMap.Builder<String, Long> repositoryIds = ImmutableMap.builder();
+        for (final List<RType> result : results) {
+            final long id = ((RLong) result.get(0)).getValue();
+            final String hash = ((RString) result.get(1)).getValue();
+            repositoryIds.put(hash, id);
+        }
+        return repositoryIds.build();
+    }
+
+    /**
      * Download the originally uploaded image files.
      * @param imageIds the IDs of the images whose files should be downloaded
      * @param isBinary if to include the binary files
      * @param isCompanion if to include the companion files
      */
-    private static void downloadFiles(final Set<Long> imageIds, boolean isBinary, boolean isCompanion) {
+    private static void downloadFiles(FileMapper fileMapper, Set<Long> imageIds, boolean isBinary, boolean isCompanion,
+            boolean isLinkFilesets, boolean isLinkImages) {
         /* map the files of the targeted images */
-        int totalCount = imageIds.size();
-        int currentCount = 1;
+        final int totalImageCount = imageIds.size();
+        int currentImageCount = 1;
         for (final long imageId : Ordering.natural().immutableSortedCopy(imageIds)) {
-            System.out.print("(" + currentCount++ + "/" + totalCount + ") ");
-            if (localRepo.isFsImage(imageId)) {
+            System.out.print("(" + currentImageCount + "/" + totalImageCount + ") ");
+
+            /* determine the used files */
+            final Set<Long> binaryFiles = new HashSet<>();
+            final Set<Long> companionFiles = new HashSet<>();
+            final Long filesetId = fileMapper.getFilesetId(imageId);
+            if (filesetId != null) {
                 final UsedFilesResponse usedFiles = requests.submit("determining files used by image " + imageId,
                         new UsedFilesRequest(imageId), UsedFilesResponse.class);
                 if (isBinary) {
-                    localRepo.assertImageHasFiles(imageId, usedFiles.binaryFilesThisSeries);
+                    binaryFiles.addAll(usedFiles.binaryFilesThisSeries);
                 }
                 if (isCompanion) {
-                    localRepo.assertImageHasFiles(imageId, usedFiles.companionFilesThisSeries);
+                    companionFiles.addAll(usedFiles.companionFilesThisSeries);
                 }
             } else {
                 final UsedFilesResponsePreFs usedFiles = requests.submit("determining files used by image " + imageId,
                         new UsedFilesRequest(imageId), UsedFilesResponsePreFs.class);
                 if (isBinary) {
-                    final Set<Long> binaryFiles = new HashSet<>(usedFiles.archivedFiles);
+                    binaryFiles.addAll(usedFiles.archivedFiles);
                     binaryFiles.removeAll(usedFiles.companionFiles);
-                    localRepo.assertImageHasFiles(imageId, binaryFiles);
                 }
                 if (isCompanion) {
-                    localRepo.assertImageHasFiles(imageId, usedFiles.companionFiles);
+                    companionFiles.addAll(usedFiles.companionFiles);
                 }
             }
-        }
 
-        /* download the files */
-        final Set<Long> wantedFileIds = localRepo.getWantedFiles();
-        totalCount = wantedFileIds.size();
-        currentCount = 1;
-        for (final long fileId : Ordering.natural().immutableSortedCopy(wantedFileIds)) {
-            System.out.print("(" + currentCount++ + "/" + totalCount + ") ");
-            final File file = files.download(remoteFiles, fileId);
-            if (file.isFile() && file.length() > 0) {
-                localRepo.assertFileHasPath(fileId, file.toPath());
+            /* download the files */
+            final Set<Long> wantedFileIds = Sets.union(binaryFiles, companionFiles);
+            final int totalFileCount = wantedFileIds.size();
+            int currentFileCount = 1;
+            for (final long fileId : Ordering.natural().immutableSortedCopy(wantedFileIds)) {
+                System.out.print("(" + currentImageCount + "/" + totalImageCount + ", " +
+                        currentFileCount++ + "/" + totalFileCount + ") ");
+                final File file = fileMapper.getRepositoryFile(fileId);
+                files.download(remoteFiles, fileId, file);
+                if (file.isFile() && file.length() > 0) {
+                    links.noteRepositoryFile(fileId, file);
+                    final File imageFile = fileMapper.getImageFile(imageId, fileId, isCompanion);
+                    links.noteModelObjectFile(ModelType.IMAGE, imageId, fileId, imageFile);
+                    if (filesetId != null) {
+                        final File filesetFile = fileMapper.getFilesetFile(fileId, isCompanion);
+                        links.noteModelObjectFile(ModelType.FILESET, filesetId, fileId, filesetFile);
+                    }
+                }
             }
+
+            /* create symbolic links to the downloaded files */
+            try {
+                if (filesetId != null) {
+                    if (isLinkFilesets) {
+                        links.linkRepositoryFiles(ModelType.FILESET, filesetId, wantedFileIds);
+                        links.linkModelObjectFiles(ModelType.IMAGE, imageId, ModelType.FILESET, filesetId, wantedFileIds);
+                        links.linkModelObjects(ModelType.FILESET, filesetId, ModelType.IMAGE, imageId);
+                    }
+                } else {
+                    if (isLinkImages) {
+                        links.linkRepositoryFiles(ModelType.IMAGE, imageId, wantedFileIds);
+                    }
+                }
+            } catch (IOException ioe) {
+                LOGGER.fatal(ioe, "cannot create repository links");
+                System.exit(3);
+            }
+            currentImageCount++;
         }
     }
 
@@ -271,26 +335,12 @@ public class Download {
      * @param isTiff if to write TIFF files
      * @param isOmeTiff if to write OME-TIFF files
      */
-    private static void exportImages(final Set<Long> imageIds, boolean isTiff, boolean isOmeTiff) {
+    private static void exportImages(FileMapper fileMapper, Collection<Long> imageIds, boolean isTiff, boolean isOmeTiff) {
         final int totalCount = imageIds.size();
         int currentCount = 1;
         for (final long imageId : imageIds) {
             final String countPrefix = "(" + currentCount++ + "/" + totalCount + ") ";
-             /* obtain the name and pixels ID for the image */
-            long pixelsId = -1;
-            try {
-                final List<List<RType>> results = iQuery.projection(
-                        "SELECT id FROM Pixels WHERE image.id = :id",
-                        new ParametersI().addId(imageId));
-                if (CollectionUtils.isEmpty(results)) {
-                    LOGGER.error(null, "cannot retrieve pixels for image " + imageId);
-                    continue;
-                }
-                pixelsId = ((RLong) results.get(0).get(0)).getValue();
-            } catch (ServerError se) {
-                LOGGER.fatal(se, "cannot use query service");
-                System.exit(3);
-            }
+
             /* obtain the metadata for the image */
             OMEXMLMetadata metadata = null;
             try {
@@ -308,25 +358,23 @@ public class Download {
                 LOGGER.fatal(se, "failed to create OME-XML metadata");
                 System.exit(3);
             }
+
             /* do the download and assembly */
-            final File imageDirectory = paths.getImage(imageId);
             try {
                 /* choose filenames and writers */
-                final File tileFile = new File(imageDirectory, "tiles.bin");
-                final LocalPixels localPixels = new LocalPixels(pixelsId, metadata, tileFile, remotePixels);
-                imageDirectory.mkdirs();
+                final File tileFile = paths.getExportFile(ModelType.IMAGE, imageId, "downloaded-tiles.bin");
                 final String imageName = metadata.getImageName(0);
-                final String filename = StringUtils.isBlank(imageName) ? "image" : paths.getSafeFilename(imageName);
+                final String filename = StringUtils.isBlank(imageName) ? "image" : imageName;
                 final Map<File, TiffWriter> tiffFiles = new HashMap<>();
                 if (isTiff) {
                     final TiffWriter writer = new TiffWriter();
-                    final String writeFile = writer.isThisType(filename) ? filename : filename + ".tiff";
-                    tiffFiles.put(new File(imageDirectory, writeFile), writer);
+                    final String writeName = writer.isThisType(filename) ? filename : filename + ".tiff";
+                    tiffFiles.put(paths.getExportFile(ModelType.IMAGE, imageId, writeName), writer);
                 }
                 if (isOmeTiff) {
                     final TiffWriter writer = new OMETiffWriter();
-                    final String writeFile = writer.isThisType(filename) ? filename : filename + ".ome.tiff";
-                    tiffFiles.put(new File(imageDirectory, writeFile), writer);
+                    final String writeName = writer.isThisType(filename) ? filename : filename + ".ome.tiff";
+                    tiffFiles.put(paths.getExportFile(ModelType.IMAGE, imageId, writeName), writer);
                 }
                 final Iterator<File> tiffFileIterator = tiffFiles.keySet().iterator();
                 while (tiffFileIterator.hasNext()) {
@@ -346,7 +394,15 @@ public class Download {
                     System.out.println("already assembled image " + imageId);
                     continue;
                 }
+
                 /* actually download and assemble */
+                final Long pixelsId = fileMapper.getPixelsId(imageId);
+                if (pixelsId == null) {
+                    LOGGER.warn(null, "failed to find pixel data for image " + imageId);
+                    continue;
+                }
+                tileFile.getParentFile().mkdirs();
+                final LocalPixels localPixels = new LocalPixels(pixelsId, metadata, tileFile, remotePixels);
                 localPixels.downloadTiles();
                 for (final Map.Entry<File, TiffWriter> tiffFileAndWriter : tiffFiles.entrySet()) {
                     System.out.print(countPrefix);
@@ -425,20 +481,22 @@ public class Download {
                 }).toList();
 
         if (CollectionUtils.isNotEmpty(imageIds)) {
-            paths.getXmlObject(Image.class, 0).getParentFile().mkdirs();
             xmlGenerator.writeImages(imageIds, new Function<Long, File>() {
                 @Override
                 public File apply(Long id) {
-                    return paths.getXmlObject(Image.class, id);
+                    final File file = paths.getMetadataFile(ModelType.IMAGE, id);
+                    file.getParentFile().mkdirs();
+                    return file;
                 }
             });
         }
         if (CollectionUtils.isNotEmpty(roiIds)) {
-            paths.getXmlObject(Roi.class, 0).getParentFile().mkdirs();
             xmlGenerator.writeRois(roiIds, new Function<Long, File>() {
                 @Override
                 public File apply(Long id) {
-                    return paths.getXmlObject(Roi.class, id);
+                    final File file = paths.getMetadataFile(ModelType.ROI, id);
+                    file.getParentFile().mkdirs();
+                    return file;
                 }
             });
         }
@@ -482,53 +540,24 @@ public class Download {
 
         /* find the images and other objects for those targets */
         final FoundChildren found = requests.submit("finding target images", finder.build(), FoundChildren.class);
-        final List<Long> imageIds = found.children.get(ome.model.core.Image.class.getName());
+        Set<Long> imageIds = ImmutableSet.copyOf(found.children.get(ome.model.core.Image.class.getName()));
 
         if (CollectionUtils.isNotEmpty(imageIds)) {
-            /* map the filesets of the targeted images */
-            localRepo.assertWantImages(imageIds);
-            System.out.print("mapping filesets of images...");
-            System.out.flush();
-            try {
-                for (final List<RType> result : iQuery.projection(
-                        "SELECT fileset.id, id FROM Image WHERE fileset IN (SELECT fileset FROM Image WHERE id IN (:ids))",
-                        new ParametersI().addIds(imageIds))) {
-                    final long filesetId = ((RLong) result.get(0)).getValue();
-                    final long imageId = ((RLong) result.get(1)).getValue();
-                    localRepo.assertFilesetHasImage(filesetId, imageId);
-                    if (parsedOptions.isAllFileset()) {
-                        localRepo.assertWantImage(imageId);
-                    }
-                }
-            } catch (ServerError se) {
-                LOGGER.fatal(se, "cannot use query service");
-                System.exit(3);
-            }
-            final Set<Long> wantedImageIds = localRepo.getWantedImages();
-            System.out.println(" done");
+            final FileMapper fileMapper = new FileMapper(iQuery, paths, imageIds);
 
             if (parsedOptions.isFileType("binary") || parsedOptions.isFileType("companion")) {
-                /* download the image files from the remote repository */
-                downloadFiles(wantedImageIds, parsedOptions.isFileType("binary"), parsedOptions.isFileType("companion"));
-
-                /* create symbolic links to the downloaded files */
-                try {
-                    if (parsedOptions.isLinkType("fileset")) {
-                        localRepo.ensureFilesetFileLinks();
-                    }
-                    if (parsedOptions.isLinkType("image")) {
-                        localRepo.ensureImageFileLinks();
-                    }
-                    localRepo.ensureFilesetImageLinks();
-                } catch (IOException ioe) {
-                    LOGGER.fatal(ioe, "cannot create repository links");
-                    System.exit(3);
+                if (parsedOptions.isAllFileset()) {
+                    imageIds = fileMapper.completeFilesets(imageIds);
                 }
+
+                /* download the image files from the remote repository */
+                downloadFiles(fileMapper, imageIds, parsedOptions.isFileType("binary"), parsedOptions.isFileType("companion"),
+                        parsedOptions.isLinkType("fileset"), parsedOptions.isLinkType("image"));
             }
 
             if (parsedOptions.isFileType("tiff") || parsedOptions.isFileType("ome-tiff")) {
                 /* export the images via Bio-Formats */
-                exportImages(wantedImageIds, parsedOptions.isFileType("tiff"), parsedOptions.isFileType("ome-tiff"));
+                exportImages(fileMapper, imageIds, parsedOptions.isFileType("tiff"), parsedOptions.isFileType("ome-tiff"));
             }
 
             if (parsedOptions.isFileType("ome-xml")) {

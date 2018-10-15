@@ -290,6 +290,7 @@ public class Download {
 
             /* download the files */
             final Set<Long> wantedFileIds = Sets.union(binaryFiles, companionFiles);
+            final Set<Long> failedFileIds = new HashSet<>();
             final int totalFileCount = wantedFileIds.size();
             int currentFileCount = 1;
             for (final long fileId : Ordering.natural().immutableSortedCopy(wantedFileIds)) {
@@ -305,20 +306,23 @@ public class Download {
                         final File filesetFile = fileMapper.getFilesetFile(fileId, isCompanion);
                         links.noteModelObjectFile(ModelType.FILESET, filesetId, fileId, filesetFile);
                     }
+                } else {
+                    failedFileIds.add(fileId);
                 }
             }
 
             /* create symbolic links to the downloaded files */
+            final Set<Long> downloadedFileIds = Sets.difference(wantedFileIds, failedFileIds);
             try {
                 if (filesetId != null) {
                     if (isLinkFilesets) {
-                        links.linkRepositoryFiles(ModelType.FILESET, filesetId, wantedFileIds);
-                        links.linkModelObjectFiles(ModelType.IMAGE, imageId, ModelType.FILESET, filesetId, wantedFileIds);
+                        links.linkRepositoryFiles(ModelType.FILESET, filesetId, downloadedFileIds);
+                        links.linkModelObjectFiles(ModelType.IMAGE, imageId, ModelType.FILESET, filesetId, downloadedFileIds);
                         links.linkModelObjects(ModelType.FILESET, filesetId, ModelType.IMAGE, imageId);
                     }
                 } else {
                     if (isLinkImages) {
-                        links.linkRepositoryFiles(ModelType.IMAGE, imageId, wantedFileIds);
+                        links.linkRepositoryFiles(ModelType.IMAGE, imageId, downloadedFileIds);
                     }
                 }
             } catch (IOException ioe) {

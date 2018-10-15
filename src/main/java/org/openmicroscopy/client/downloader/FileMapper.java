@@ -195,12 +195,24 @@ public class FileMapper {
                         files.put(fileId, file);
                     }
                 }
+                final Set<Long> pixelsThisBatch = new HashSet<>();
                 for (final List<RType> result : iQuery.projection(
                         "SELECT image.id, id FROM Pixels WHERE image.id IN (:ids))",
                         new ParametersI().addIds(imageIdBatch))) {
                     final long imageId = ((RLong) result.get(0)).getValue();
                     final long pixelsId = ((RLong) result.get(1)).getValue();
                     pixelsOfImages.put(imageId, pixelsId);
+                    pixelsThisBatch.add(pixelsId);
+                }
+                if (!pixelsThisBatch.isEmpty()) {
+                    for (final List<RType> result : iQuery.projection(
+                            "SELECT parent.id, parent.name FROM PixelsOriginalFileMap WHERE child.id IN (:ids))",
+                            new ParametersI().addIds(pixelsThisBatch))) {
+                        final long fileId = ((RLong) result.get(0)).getValue();
+                        final String name = ((RString) result.get(1)).getValue();
+                        final OriginalFile file = new OriginalFile(fileId, name);
+                        files.put(fileId, file);
+                    }
                 }
             }
         } catch (ServerError se) {

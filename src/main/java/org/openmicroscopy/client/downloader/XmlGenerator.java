@@ -78,7 +78,7 @@ public class XmlGenerator {
     private static final Logger LOGGER = new SimpleLogger();
 
     /* the batch size for retrieving model objects from OMERO */
-    private static final int BATCH_SIZE = 1024;
+    private static final int BATCH_SIZE = 512;
 
     private static DocumentBuilder DOCUMENT_BUILDER = null;
 

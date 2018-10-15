@@ -167,10 +167,12 @@ public class XmlGenerator {
                 "LEFT OUTER JOIN FETCH i_a_link.child AS i_a " +
                 "LEFT OUTER JOIN FETCH i.rois AS r " +
                 "LEFT OUTER JOIN FETCH p.channels AS c " +
+                "LEFT OUTER JOIN FETCH c.logicalChannel AS l " +
                 "LEFT OUTER JOIN FETCH i.instrument " +
                 "LEFT OUTER JOIN FETCH p.pixelsType " +
                 "LEFT OUTER JOIN FETCH p.planeInfo " +
-                "LEFT OUTER JOIN FETCH c.logicalChannel " +
+                "LEFT OUTER JOIN FETCH l.illumination " +
+                "LEFT OUTER JOIN FETCH l.mode " +
                 "LEFT OUTER JOIN FETCH i.details.updateEvent " +
                 "LEFT OUTER JOIN FETCH p.details.updateEvent " +
                 "LEFT OUTER JOIN FETCH r.details.updateEvent " +

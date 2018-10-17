@@ -323,14 +323,6 @@ public class XmlGenerator {
                     final OMEXMLMetadata metadata = omeXmlService.createOMEXMLMetadata();
                     metadata.createRoot();
                     omeXmlService.convertMetadata(new ImageMetadata(lsidGetter, Collections.singletonList(image)), metadata);
-                    int roiIndex = 0;
-                    for (final IObject result : iQuery.findAllByQuery("FROM Roi r " +
-                            "LEFT OUTER JOIN FETCH r.details.updateEvent " +
-                            "WHERE r.image.id = :id", new ParametersI().addId(image.getId()))) {
-                        final String roiId = lsidGetter.apply(result);
-                        metadata.setROIID(roiId, roiIndex++);
-                    }
-                    metadata.resolveReferences();
                     final OME omeElement = (OME) metadata.getRoot();
                     final ome.xml.model.Image imageElement = omeElement.getImage(0);
                     writeElement(imageElement, toWrite.get(image.getId().getValue()));

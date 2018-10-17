@@ -21,8 +21,12 @@ package org.openmicroscopy.client.downloader;
 
 import com.google.common.base.Function;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 
 import java.io.File;
@@ -44,6 +48,7 @@ import javax.xml.transform.TransformerException;
 
 import loci.common.services.ServiceException;
 import loci.common.xml.XMLTools;
+import loci.formats.meta.MetadataRetrieve;
 import loci.formats.meta.MetadataStore;
 import loci.formats.ome.OMEXMLMetadata;
 import loci.formats.services.OMEXMLService;
@@ -51,6 +56,8 @@ import loci.formats.services.OMEXMLService;
 import ome.xml.model.OME;
 import ome.xml.model.OMEModelObject;
 
+import omero.RLong;
+import omero.RType;
 import omero.ServerError;
 import omero.api.IConfigPrx;
 import omero.api.IQueryPrx;
@@ -91,6 +98,70 @@ public class XmlGenerator {
         }
     }
 
+    private static final Multimap<ModelType, Map.Entry<ModelType, String>> CONTAINER_QUERIES;
+
+    static {
+        final ImmutableMultimap.Builder<ModelType, Map.Entry<ModelType, String>> builder = ImmutableMultimap.builder();
+        builder.put(ModelType.PROJECT, Maps.immutableEntry(ModelType.DATASET,
+                "SELECT parent.id, child.id FROM ProjectDatasetLink WHERE parent.id IN (:ids)"));
+        builder.put(ModelType.PROJECT, Maps.immutableEntry(ModelType.ANNOTATION,
+                "SELECT parent.id, child.id FROM ProjectAnnotationLink WHERE parent.id IN (:ids)"));
+        builder.put(ModelType.DATASET, Maps.immutableEntry(ModelType.IMAGE,
+                "SELECT parent.id, child.id FROM DatasetImageLink WHERE parent.id IN (:ids)"));
+        builder.put(ModelType.DATASET, Maps.immutableEntry(ModelType.ANNOTATION,
+                "SELECT parent.id, child.id FROM DatasetAnnotationLink WHERE parent.id IN (:ids)"));
+        builder.put(ModelType.FOLDER, Maps.immutableEntry(ModelType.IMAGE,
+                "SELECT parent.id, child.id FROM FolderImageLink WHERE parent.id IN (:ids)"));
+        builder.put(ModelType.FOLDER, Maps.immutableEntry(ModelType.ROI,
+                "SELECT parent.id, child.id FROM FolderRoiLink WHERE parent.id IN (:ids)"));
+        builder.put(ModelType.FOLDER, Maps.immutableEntry(ModelType.FOLDER,
+                "SELECT parentFolder.id, id FROM Folder WHERE parentFolder.id IN (:ids)"));
+        builder.put(ModelType.FOLDER, Maps.immutableEntry(ModelType.ANNOTATION,
+                "SELECT parent.id, child.id FROM FolderAnnotationLink WHERE parent.id IN (:ids)"));
+        builder.put(ModelType.SCREEN, Maps.immutableEntry(ModelType.PLATE,
+                "SELECT parent.id, child.id FROM ScreenPlateLink WHERE parent.id IN (:ids)"));
+        builder.put(ModelType.SCREEN, Maps.immutableEntry(ModelType.ANNOTATION,
+                "SELECT parent.id, child.id FROM ScreenAnnotationLink WHERE parent.id IN (:ids)"));
+        builder.put(ModelType.PLATE, Maps.immutableEntry(ModelType.IMAGE,
+                "SELECT well.plate.id, image.id FROM WellSample WHERE well.plate.id IN (:ids)"));
+        builder.put(ModelType.PLATE, Maps.immutableEntry(ModelType.ANNOTATION,
+                "SELECT parent.id, child.id FROM PlateAnnotationLink WHERE parent.id IN (:ids)"));
+        builder.put(ModelType.IMAGE, Maps.immutableEntry(ModelType.ROI,
+                "SELECT image.id, id FROM Roi WHERE image.id IN (:ids)"));
+        builder.put(ModelType.IMAGE, Maps.immutableEntry(ModelType.INSTRUMENT,
+                "SELECT id, instrument.id FROM Image WHERE id IN (:ids)"));
+        builder.put(ModelType.IMAGE, Maps.immutableEntry(ModelType.ANNOTATION,
+                "SELECT parent.id, child.id FROM ImageAnnotationLink WHERE parent.id IN (:ids)"));
+        builder.put(ModelType.INSTRUMENT, Maps.immutableEntry(ModelType.ANNOTATION,
+                "SELECT parent.id, child.id FROM InstrumentAnnotationLink WHERE parent.id IN (:ids)"));
+        builder.put(ModelType.ANNOTATION, Maps.immutableEntry(ModelType.ANNOTATION,
+                "SELECT parent.id, child.id FROM AnnotationAnnotationLink WHERE parent.id IN (:ids)"));
+        CONTAINER_QUERIES = builder.build();
+    }
+
+    /**
+     * Receives notification that one model object contains another.
+     * @see #queryRelationships(org.openmicroscopy.client.downloader.XmlGenerator.ContainmentListener,
+     * com.google.common.collect.SetMultimap)
+     */
+    public interface ContainmentListener {
+        /**
+         * The container model object contains the contained model object.
+         * @param containerType the type of the model object that contains the other
+         * @param containerId the ID of the model object that contains the other
+         * @param containedType the type of the model object that is contained by the other
+         * @param containedId the ID of the model object that is contained by the other
+         */
+        void contains(ModelType containerType, long containerId, ModelType containedType, long containedId);
+
+        /**
+         * Report if this containment listener requests to be notified of relationships involving the given model object type.
+         * @param modelType a model object type
+         * @return if this listener requests notifications involving the given model object type.
+         */
+        boolean isWanted(ModelType modelType);
+    }
+
     private final OMEXMLService omeXmlService;
     private final IQueryPrx iQuery;
     private final String format;
@@ -101,6 +172,94 @@ public class XmlGenerator {
             return getLsid(object);
         }
     };
+
+    /**
+     * Construct a directory of metadata LSIDs for model object IDs.
+     * @param getLsid gets the LSID for the given index
+     * @param count how many LSIDs are available
+     * @return a directory of from model object ID to metadata index
+     * @see #getLsid(omero.model.IObject) 
+     */
+    private static Map<Long, Integer> buildMetadataIndex(Function<Integer, String> getLsid, int count) {
+        final ImmutableMap.Builder<Long, Integer> idsToIndices = ImmutableMap.builder();
+        for (int index = 0; index < count; index++) {
+            final String lsid = getLsid.apply(index);
+            final int underscore = lsid.lastIndexOf('_');
+            final int colon = lsid.lastIndexOf(':');
+            final long id = Long.parseLong(lsid.substring(underscore + 1, colon));
+            idsToIndices.put(id, index);
+        }
+        return idsToIndices.build();
+    }
+
+    /**
+     * From the given metadata store determine its corresponding index argument for each model object.
+     * @param metadata a metadata store
+     * @return a directory of index arguments for model objects
+     */
+    public Map<ModelType, Map<Long, Integer>> getMetadataIndicesForModelObjects(final MetadataRetrieve metadata) {
+        final ImmutableMap.Builder<ModelType, Map<Long, Integer>> indexMap = ImmutableMap.builder();
+        final int imageCount = metadata.getImageCount();
+        if (imageCount > 0) {
+            indexMap.put(ModelType.IMAGE, buildMetadataIndex(new Function<Integer, String>() {
+                @Override
+                public String apply(Integer index) {
+                    return metadata.getImageID(index);
+                }
+            }, imageCount));
+        }
+        final int roiCount = metadata.getROICount();
+        if (roiCount > 0) {
+            indexMap.put(ModelType.ROI, buildMetadataIndex(new Function<Integer, String>() {
+                @Override
+                public String apply(Integer index) {
+                    return metadata.getROIID(index);
+                }
+            }, roiCount));
+        }
+        return indexMap.build();
+    }
+
+    /**
+     * Query the parent-child relationships among model objects.
+     * @param listener the listener to notify of parent-child relationships
+     * @param objects the parents from which to start the query
+     * @throws ServerError if a query failed
+     */
+    public void queryRelationships(ContainmentListener listener, SetMultimap<ModelType, Long> objects) throws ServerError {
+        SetMultimap<ModelType, Long> toQuery = objects;
+        final SetMultimap<ModelType, Long> queried = HashMultimap.create();
+        while (!toQuery.isEmpty()) {
+            final SetMultimap<ModelType, Long> nextToQuery = HashMultimap.create();
+            for (final Map.Entry<ModelType, Collection<Long>> toQueryOneType : toQuery.asMap().entrySet()) {
+                final ModelType parentType = toQueryOneType.getKey();
+                final List<Long> parentIds = ImmutableList.copyOf(toQueryOneType.getValue());
+                if (listener.isWanted(parentType)) {
+                    for (final Map.Entry<ModelType, String> relationship : CONTAINER_QUERIES.get(parentType)) {
+                        final ModelType childType = relationship.getKey();
+                        final String hql = relationship.getValue();
+                        if (listener.isWanted(childType)) {
+                            for (final List<Long> idBatch : Lists.partition(parentIds, BATCH_SIZE)) {
+                                for (final List<RType> result :iQuery.projection(hql, new ParametersI().addIds(idBatch))) {
+                                    final long parentId = ((RLong) result.get(0)).getValue();
+                                    final long childId = ((RLong) result.get(1)).getValue();
+                                    listener.contains(parentType, parentId, childType, childId);
+                                    nextToQuery.put(childType, childId);
+                                }
+                            }
+                        }
+                    }
+                }
+                queried.putAll(parentType, parentIds);
+            }
+            toQuery = nextToQuery;
+            for (final Map.Entry<ModelType, Collection<Long>> toQueryOneType : toQuery.asMap().entrySet()) {
+                final ModelType toQueryType = toQueryOneType.getKey();
+                final Collection<Long> toQueryIds = toQueryOneType.getValue();
+                toQueryIds.removeAll(queried.get(toQueryType));
+            }
+        }
+    }
 
     /**
      * Helper for writing OMERO model objects as locally as XML.
@@ -165,17 +324,13 @@ public class XmlGenerator {
                 "LEFT OUTER JOIN FETCH i.pixels AS p " +
                 "LEFT OUTER JOIN FETCH i.annotationLinks AS i_a_link " +
                 "LEFT OUTER JOIN FETCH i_a_link.child AS i_a " +
-                "LEFT OUTER JOIN FETCH i.rois AS r " +
                 "LEFT OUTER JOIN FETCH p.channels AS c " +
                 "LEFT OUTER JOIN FETCH c.logicalChannel AS l " +
-                "LEFT OUTER JOIN FETCH i.instrument " +
                 "LEFT OUTER JOIN FETCH p.pixelsType " +
                 "LEFT OUTER JOIN FETCH p.planeInfo " +
                 "LEFT OUTER JOIN FETCH l.illumination " +
                 "LEFT OUTER JOIN FETCH l.mode " +
-                "LEFT OUTER JOIN FETCH i.details.updateEvent " +
                 "LEFT OUTER JOIN FETCH p.details.updateEvent " +
-                "LEFT OUTER JOIN FETCH r.details.updateEvent " +
                 "LEFT OUTER JOIN FETCH c.details.updateEvent " +
                 "LEFT OUTER JOIN FETCH i_a.details.updateEvent " +
                 "WHERE i.id IN (:ids)", new ParametersI().addIds(ids))) {
@@ -251,33 +406,22 @@ public class XmlGenerator {
      * Write the given images into the given metadata store.
      * @param ids the IDs of the images to write
      * @param destination the metadata store into which to write the images
-     * @return IDs of objects referenced by the images, indexed by top-level object type
      * @throws ServerError if the images could not be read
      */
-    public SetMultimap<Class<? extends IObject>, Long> writeImages(List<Long> ids, MetadataStore destination) throws ServerError {
-        final SetMultimap<Class<? extends IObject>, Long> referenced = HashMultimap.create();
+    public void writeImages(List<Long> ids, MetadataStore destination) throws ServerError {
         for (final List<Long> imageIdBatch : Lists.partition(ids, BATCH_SIZE)) {
             final List<Image> images = getImages(imageIdBatch);
-            for (final Image image : images) {
-                /* Note references to ROIs. */
-                for (final Roi roi : image.copyRois()) {
-                    referenced.put(Roi.class, roi.getId().getValue());
-                }
-            }
             omeXmlService.convertMetadata(new ImageMetadata(lsidGetter, images), destination);
         }
-        return referenced;
     }
 
     /**
      * Write the given ROIs into the given metadata store.
      * @param ids the IDs of the ROIs to write
      * @param destination the metadata store into which to write the ROIs
-     * @return IDs of objects referenced by the ROIs, indexed by top-level object type
      * @throws ServerError if the ROIs could not be read
      */
-    public SetMultimap<Class<? extends IObject>, Long> writeRois(List<Long> ids, MetadataStore destination) throws ServerError {
-        final SetMultimap<Class<? extends IObject>, Long> referenced = HashMultimap.create();
+    public void writeRois(List<Long> ids, MetadataStore destination) throws ServerError {
         for (final List<Long> roiIdBatch : Lists.partition(ids, BATCH_SIZE)) {
             final List<Roi> rois = getRois(roiIdBatch);
             for (final Roi roi : rois) {
@@ -300,8 +444,7 @@ public class XmlGenerator {
                 }
             }
             omeXmlService.convertMetadata(new RoiMetadata(lsidGetter, rois), destination);
-            }
-        return referenced;
+        }
     }
 
     /**

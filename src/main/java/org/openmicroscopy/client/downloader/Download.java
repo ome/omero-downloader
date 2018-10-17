@@ -21,11 +21,11 @@ package org.openmicroscopy.client.downloader;
 
 import com.google.common.base.Function;
 import com.google.common.base.Splitter;
-import com.google.common.collect.FluentIterable;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
@@ -101,6 +101,55 @@ public class Download {
     private static final Logger LOGGER = new SimpleLogger();
     private static final Gateway GATEWAY = new Gateway(LOGGER);
     private static final Pattern TARGET_PATTERN = Pattern.compile("([A-Z][A-Za-z]*):(\\d+(,\\d+)*)");
+
+    /**
+     * Maps parent-child relationships among model objects: parent to child; types and IDs.
+     */
+    private static class ParentChildMap implements XmlGenerator.ContainmentListener {
+
+        /**
+         * The parent-child relationships.
+         */
+        final Map<Map.Entry<ModelType, ModelType>, SetMultimap<Long, Long>> containment = new HashMap<>();
+
+        private final Set<ModelType> wantedTypes;
+
+        /**
+         * Construct a mapper for parent-child relationships.
+         * @param wantedTypes the model object types among which to find relationships
+         */
+        ParentChildMap(Iterable<ModelType> wantedTypes) {
+            this.wantedTypes = ImmutableSet.copyOf(wantedTypes);
+        }
+
+        /**
+         * The parent model objects from which to find children recursively.
+         * @param objects some model objects
+         * @return this mapper
+         */
+        ParentChildMap build(SetMultimap<ModelType, Long> objects) throws ServerError {
+            xmlGenerator.queryRelationships(this, objects);
+            return this;
+        }
+
+        @Override
+        public void contains(ModelType containerType, long containerId, ModelType containedType, long containedId) {
+            if (wantedTypes.contains(containerType) && wantedTypes.contains(containedType)) {
+                final Map.Entry<ModelType, ModelType> types = Maps.immutableEntry(containerType, containedType);
+                SetMultimap<Long, Long> ids = containment.get(types);
+                if (ids == null) {
+                    ids = HashMultimap.create();
+                    containment.put(types, ids);
+                }
+                ids.put(containerId, containedId);
+            }
+        }
+
+        @Override
+        public boolean isWanted(ModelType modelType) {
+            return wantedTypes.contains(modelType);
+        }
+    }
 
     private static OMEXMLService omeXmlService = null;
     private static SecurityContext ctx = null;
@@ -251,6 +300,7 @@ public class Download {
 
     /**
      * Download the originally uploaded image files.
+     * @param fileMapper the file mapper
      * @param imageIds the IDs of the images whose files should be downloaded
      * @param isBinary if to include the binary files
      * @param isCompanion if to include the companion files
@@ -335,11 +385,15 @@ public class Download {
 
     /**
      * Write image data via Bio-Formats writers.
+     * @param fileMapper the file mapper
+     * @param containment the parent-child relationships
      * @param imageIds the IDs of the images that should be exported
      * @param isTiff if to write TIFF files
      * @param isOmeTiff if to write OME-TIFF files
      */
-    private static void exportImages(FileMapper fileMapper, Collection<Long> imageIds, boolean isTiff, boolean isOmeTiff) {
+    private static void exportImages(FileMapper fileMapper,
+            Map<Map.Entry<ModelType, ModelType>, SetMultimap<Long, Long>> containment,
+            Collection<Long> imageIds, boolean isTiff, boolean isOmeTiff) {
         final int totalCount = imageIds.size();
         int currentCount = 1;
         for (final long imageId : imageIds) {
@@ -350,9 +404,18 @@ public class Download {
             try {
                 metadata = omeXmlService.createOMEXMLMetadata();
                 metadata.createRoot();
-                final SetMultimap<Class<? extends IObject>, Long> referenced =
-                        xmlGenerator.writeImages(Collections.singletonList(imageId), metadata);
-                xmlGenerator.writeRois(ImmutableList.copyOf(referenced.get(Roi.class)), metadata);
+                final SetMultimap<Long, Long> roiMap = containment.get(Maps.immutableEntry(ModelType.IMAGE, ModelType.ROI));
+                final Set<Long> roiIds = roiMap == null ? Collections.<Long>emptySet() : ImmutableSet.copyOf(roiMap.get(imageId));
+                xmlGenerator.writeImages(Collections.singletonList(imageId), metadata);
+                xmlGenerator.writeRois(ImmutableList.copyOf(roiIds), metadata);
+                final Map<ModelType, Map<Long, Integer>> indices = xmlGenerator.getMetadataIndicesForModelObjects(metadata);
+                final Map<Long, Integer> imageIndices = indices.get(ModelType.IMAGE);
+                final Map<Long, Integer> roiIndices = indices.get(ModelType.ROI);
+                final int imageIndex = imageIndices.get(imageId);
+                for (final long roiId : roiIds) {
+                    final int roiIndex = roiIndices.get(roiId);
+                    metadata.setImageROIRef(metadata.getROIID(roiIndex), imageIndex, roiIndex);
+                }
                 /* TODO: Workaround for a curious legacy issue that may yet be fixed. */
                 metadata.setPixelsBigEndian(true, 0);
             } catch (ServerError se) {
@@ -453,39 +516,13 @@ public class Download {
 
     /**
      * Write the given model objects as XML.
+     * @param containment the parent-child relationships
      * @param objects the model objects to write
      */
-    private static void writeXmlObjects(Map<String, List<Long>> objects) {
-        final List<Long> projectIds = objects.get(ome.model.containers.Project.class.getName());
-        final List<Long> datasetIds = objects.get(ome.model.containers.Dataset.class.getName());
-        final List<Long> folderIds = objects.get(ome.model.containers.Folder.class.getName());
-        final List<Long> experimentIds = objects.get(ome.model.experiment.Experiment.class.getName());
-        final List<Long> instrumentIds = objects.get(ome.model.acquisition.Instrument.class.getName());
-        final List<Long> imageIds = objects.get(ome.model.core.Image.class.getName());
-        final List<Long> screenIds = objects.get(ome.model.screen.Screen.class.getName());
-        final List<Long> plateIds = objects.get(ome.model.screen.Plate.class.getName());
-        final List<Long> roiIds = objects.get(ome.model.roi.Roi.class.getName());
-        final List<Long> annotationIds = FluentIterable.from(Lists.newArrayList(
-                objects.get(ome.model.annotations.BooleanAnnotation.class.getName()),
-                objects.get(ome.model.annotations.CommentAnnotation.class.getName()),
-                objects.get(ome.model.annotations.DoubleAnnotation.class.getName()),
-                // objects.get(ome.model.annotations.FileAnnotation.class.getName()),
-                objects.get(ome.model.annotations.ListAnnotation.class.getName()),
-                objects.get(ome.model.annotations.LongAnnotation.class.getName()),
-                objects.get(ome.model.annotations.MapAnnotation.class.getName()),
-                objects.get(ome.model.annotations.TagAnnotation.class.getName()),
-                objects.get(ome.model.annotations.TermAnnotation.class.getName()),
-                objects.get(ome.model.annotations.TimestampAnnotation.class.getName()),
-                objects.get(ome.model.annotations.XmlAnnotation.class.getName())))
-                .transformAndConcat(new Function<List<Long>, List<Long>>() {
-                    @Override
-                    public List<Long> apply(List<Long> ids) {
-                        return ids == null ? Collections.<Long>emptyList() : ids;
-                    }
-                }).toList();
-
-        if (CollectionUtils.isNotEmpty(imageIds)) {
-            xmlGenerator.writeImages(imageIds, new Function<Long, File>() {
+    private static void writeXmlObjects(Map<Map.Entry<ModelType, ModelType>, SetMultimap<Long, Long>> containment,
+            final SetMultimap<ModelType, Long> objects) {
+        if (objects.containsKey(ModelType.IMAGE)) {
+            xmlGenerator.writeImages(ImmutableList.copyOf(objects.get(ModelType.IMAGE)), new Function<Long, File>() {
                 @Override
                 public File apply(Long id) {
                     final File file = paths.getMetadataFile(ModelType.IMAGE, id);
@@ -494,8 +531,8 @@ public class Download {
                 }
             });
         }
-        if (CollectionUtils.isNotEmpty(roiIds)) {
-            xmlGenerator.writeRois(roiIds, new Function<Long, File>() {
+        if (objects.containsKey(ModelType.ROI)) {
+            xmlGenerator.writeRois(ImmutableList.copyOf(objects.get(ModelType.ROI)), new Function<Long, File>() {
                 @Override
                 public File apply(Long id) {
                     final File file = paths.getMetadataFile(ModelType.ROI, id);
@@ -503,6 +540,21 @@ public class Download {
                     return file;
                 }
             });
+        }
+        try {
+            for (final Map.Entry<Map.Entry<ModelType, ModelType>,
+                    SetMultimap<Long, Long>> containmentEntry : containment.entrySet()) {
+                final ModelType containerType = containmentEntry.getKey().getKey();
+                final ModelType containedType = containmentEntry.getKey().getValue();
+                for (final Map.Entry<Long, Long> containmentIds : containmentEntry.getValue().entries()) {
+                    final long containerId = containmentIds.getKey();
+                    final long containedId = containmentIds.getValue();
+                    links.linkModelObjects(containerType, containerId, containedType, containedId);
+                }
+            }
+        } catch (IOException ioe) {
+            LOGGER.fatal(ioe, "cannot create repository links");
+            System.exit(3);
         }
     }
 
@@ -543,17 +595,57 @@ public class Download {
         }
 
         /* find the images and other objects for those targets */
-        final FoundChildren found = requests.submit("finding target images", finder.build(), FoundChildren.class);
+        FoundChildren found = requests.submit("finding target images", finder.build(), FoundChildren.class);
         Set<Long> imageIds = ImmutableSet.copyOf(found.children.get(ome.model.core.Image.class.getName()));
 
+        /* process filesets */
+        FileMapper fileMapper = null;
         if (CollectionUtils.isNotEmpty(imageIds)) {
-            final FileMapper fileMapper = new FileMapper(iQuery, paths, imageIds);
-
-            if (parsedOptions.isFileType("binary") || parsedOptions.isFileType("companion")) {
-                if (parsedOptions.isAllFileset()) {
-                    imageIds = fileMapper.completeFilesets(imageIds);
+            fileMapper = new FileMapper(iQuery, paths, imageIds);
+            if (parsedOptions.isAllFileset()) {
+                final Set<Long> newImageIds = fileMapper.completeFilesets(imageIds);
+                if (!newImageIds.equals(imageIds)) {
+                    finder.target(Image.class).id(newImageIds);
+                    found = requests.submit("finding target images", finder.build(), FoundChildren.class);
+                    imageIds = ImmutableSet.copyOf(found.children.get(ome.model.core.Image.class.getName()));
                 }
+            }
+        }
 
+        /* organize all the targeted objects by model type */
+        final SetMultimap<ModelType, Long> toWrite = HashMultimap.create();
+        for (final Map.Entry<String, List<Long>> childrenOneType : found.children.entrySet()) {
+            final String typeName = childrenOneType.getKey();
+            final List<Long> ids = childrenOneType.getValue();
+            final String blitzName = "omero.model." + typeName.substring(typeName.lastIndexOf('.') + 1);
+            Class<? extends IObject> modelObjectClass = null;
+            try {
+                modelObjectClass = Class.forName(blitzName).asSubclass(IObject.class);
+            } catch (ClassNotFoundException cnfe) {
+                LOGGER.fatal(cnfe, "failed to process model object class: " + typeName);
+                System.exit(3);
+            }
+            try {
+                final ModelType modelType = ModelType.getEnumValueFor(modelObjectClass);
+                toWrite.putAll(modelType, ids);
+            } catch (IllegalArgumentException iae) {
+                LOGGER.fatal(iae, "failed to process model object class: " + modelObjectClass);
+                System.exit(3);
+            }
+        }
+
+        /* map parent-child relationships */
+        Map<Map.Entry<ModelType, ModelType>, SetMultimap<Long, Long>> containment = null;
+        try {
+            containment = new ParentChildMap(toWrite.keySet()).build(toWrite).containment;
+        } catch (ServerError se) {
+            LOGGER.fatal(se, "cannot use query service");
+            System.exit(3);
+        }
+
+        /* write the requested files */
+        if (CollectionUtils.isNotEmpty(imageIds)) {
+            if (parsedOptions.isFileType("binary") || parsedOptions.isFileType("companion")) {
                 /* download the image files from the remote repository */
                 downloadFiles(fileMapper, imageIds, parsedOptions.isFileType("binary"), parsedOptions.isFileType("companion"),
                         parsedOptions.isLinkType("fileset"), parsedOptions.isLinkType("image"));
@@ -561,7 +653,8 @@ public class Download {
 
             if (parsedOptions.isFileType("tiff") || parsedOptions.isFileType("ome-tiff")) {
                 /* export the images via Bio-Formats */
-                exportImages(fileMapper, imageIds, parsedOptions.isFileType("tiff"), parsedOptions.isFileType("ome-tiff"));
+                exportImages(fileMapper, containment, imageIds,
+                        parsedOptions.isFileType("tiff"), parsedOptions.isFileType("ome-tiff"));
             }
 
             if (parsedOptions.isFileType("ome-xml")) {
@@ -569,13 +662,13 @@ public class Download {
             }
         }
 
-        final Map<String, List<Long>> toWrite = new HashMap<>(found.children);
+        /* write the requested metadata */
         if (!parsedOptions.isObjectType("image")) {
-            toWrite.remove(ome.model.core.Image.class.getName());
+            toWrite.removeAll(ModelType.IMAGE);
         }
         if (!toWrite.isEmpty()) {
             /* write model objects as XML */
-            writeXmlObjects(toWrite);
+            writeXmlObjects(containment, toWrite);
         }
 
         /* all done with the server */

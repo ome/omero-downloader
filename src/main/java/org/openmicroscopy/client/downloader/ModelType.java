@@ -57,18 +57,16 @@ public enum ModelType {
     }
 
     /**
-     * Get the enumeration value for the given OMERO model object instance.
-     * TODO: Unused so possibly delete.
-     * @param instance an instance of an OMERO model object
+     * Get the enumeration value for the given OMERO model object class.
+     * @param modelClass an OMERO model object class
      * @return the corresponding enumeration value
      */
-    private static ModelType getObjectFor(IObject instance) {
-        final Class<? extends IObject> soughtClass = instance.getClass();
+    public static ModelType getEnumValueFor(Class<? extends IObject> modelClass) {
         for (final ModelType object : ModelType.values()) {
-            if (object.omeroType.isAssignableFrom(soughtClass)) {
+            if (object.omeroType.isAssignableFrom(modelClass)) {
                 return object;
             }
         }
-        throw new IllegalArgumentException("unknown class: " + instance.getClass());
+        throw new IllegalArgumentException("unknown class: " + modelClass);
     }
 }

@@ -44,6 +44,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Sets;
 
 /**
  * Track the relationships among filesets, images, pixels and original files.
@@ -140,6 +141,7 @@ public class FileMapper {
         }
     }
 
+    private final IQueryPrx iQuery;
     private final LocalPaths paths;
 
     /* indices */
@@ -157,6 +159,7 @@ public class FileMapper {
      * @param imageIds the IDs of the images to map
      */
     public FileMapper(IQueryPrx iQuery, LocalPaths paths, Collection<Long> imageIds) {
+        this.iQuery = iQuery;
         this.paths = paths;
 
         /* map the filesets of the targeted images */
@@ -195,25 +198,7 @@ public class FileMapper {
                         files.put(fileId, file);
                     }
                 }
-                final Set<Long> pixelsThisBatch = new HashSet<>();
-                for (final List<RType> result : iQuery.projection(
-                        "SELECT image.id, id FROM Pixels WHERE image.id IN (:ids))",
-                        new ParametersI().addIds(imageIdBatch))) {
-                    final long imageId = ((RLong) result.get(0)).getValue();
-                    final long pixelsId = ((RLong) result.get(1)).getValue();
-                    pixelsOfImages.put(imageId, pixelsId);
-                    pixelsThisBatch.add(pixelsId);
-                }
-                if (!pixelsThisBatch.isEmpty()) {
-                    for (final List<RType> result : iQuery.projection(
-                            "SELECT parent.id, parent.name FROM PixelsOriginalFileMap WHERE child.id IN (:ids))",
-                            new ParametersI().addIds(pixelsThisBatch))) {
-                        final long fileId = ((RLong) result.get(0)).getValue();
-                        final String name = ((RString) result.get(1)).getValue();
-                        final OriginalFile file = new OriginalFile(fileId, name);
-                        files.put(fileId, file);
-                    }
-                }
+                queryPixels(imageIdBatch);
             }
         } catch (ServerError se) {
             LOGGER.fatal(se, "cannot use query service");
@@ -236,11 +221,39 @@ public class FileMapper {
     }
 
     /**
+     * Map the pixels of the given images.
+     * @param imageIds the IDs of the images to map
+     * @throws ServerError if a query failed
+     */
+    private void queryPixels(Collection<Long> imageIds) throws ServerError {
+        final Set<Long> pixelsIds = new HashSet<>();
+        for (final List<RType> result : iQuery.projection(
+                "SELECT image.id, id FROM Pixels WHERE image.id IN (:ids))",
+                new ParametersI().addIds(imageIds))) {
+            final long imageId = ((RLong) result.get(0)).getValue();
+            final long pixelsId = ((RLong) result.get(1)).getValue();
+            pixelsOfImages.put(imageId, pixelsId);
+            pixelsIds.add(pixelsId);
+        }
+        if (pixelsIds.isEmpty()) {
+            return;
+        }
+        for (final List<RType> result : iQuery.projection(
+                "SELECT parent.id, parent.name FROM PixelsOriginalFileMap WHERE child.id IN (:ids))",
+                new ParametersI().addIds(pixelsIds))) {
+            final long fileId = ((RLong) result.get(0)).getValue();
+            final String name = ((RString) result.get(1)).getValue();
+            final OriginalFile file = new OriginalFile(fileId, name);
+            files.put(fileId, file);
+        }
+    }
+
+    /**
      * Provide the IDs of all the images of all the filesets that have an image whose ID among those given.
      * @param imageIds some image IDs
      * @return a superset of the image IDs, completing any partial filesets
      */
-    public Set<Long> completeFilesets(Iterable<Long> imageIds) {
+    public Set<Long> completeFilesets(Set<Long> imageIds) {
         final Set<Long> filesetIds = new HashSet<>();
         for (final long imageId : imageIds) {
             final Long filesetId = filesetOfImages.get(imageId);
@@ -253,7 +266,19 @@ public class FileMapper {
         for (final long filesetId : filesetIds) {
             builder.addAll(imagesOfFilesets.get(filesetId));
         }
-        return builder.build();
+        final Set<Long> newImageIds = builder.build();
+        if (!newImageIds.equals(imageIds)) {
+            final List<Long> toQuery = ImmutableList.copyOf(Sets.difference(newImageIds, imageIds));
+            try {
+                for (final List<Long> imageIdBatch : Lists.partition(ImmutableList.copyOf(toQuery), BATCH_SIZE)) {
+                    queryPixels(imageIdBatch);
+                }
+            } catch (ServerError se) {
+                LOGGER.fatal(se, "cannot use query service");
+                System.exit(3);
+            }
+        }
+        return newImageIds;
     }
 
     /**

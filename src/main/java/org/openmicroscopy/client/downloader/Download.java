@@ -299,6 +299,33 @@ public class Download {
     }
 
     /**
+     * Determine the model classes selected for writing as XML.
+     * @param parsedOptions the selected command-line options
+     * @return the selected model classes, never {@code null}
+     */
+    private static Set<Class<? extends IObject>> getModelClasses(OptionParser.Chosen parsedOptions) {
+        final Set<Class<? extends IObject>> modelClasses = new HashSet<>();
+        modelClasses.add(Project.class);
+        modelClasses.add(Dataset.class);
+        modelClasses.add(Folder.class);
+        modelClasses.add(Experiment.class);
+        modelClasses.add(Instrument.class);
+        modelClasses.add(Image.class);
+        modelClasses.add(Screen.class);
+        modelClasses.add(Plate.class);
+        modelClasses.add(Annotation.class);
+        modelClasses.add(Roi.class);
+        final Iterator<Class<? extends IObject>> modelClassIterator = modelClasses.iterator();
+        while (modelClassIterator.hasNext()) {
+            final Class<? extends IObject> modelClass = modelClassIterator.next();
+            if (!parsedOptions.isObjectType(modelClass.getSimpleName().toLowerCase())) {
+                modelClassIterator.remove();
+            }
+        }
+        return modelClasses;
+    }
+
+    /**
      * Download the originally uploaded image files.
      * @param fileMapper the file mapper
      * @param imageIds the IDs of the images whose files should be downloaded
@@ -485,33 +512,6 @@ public class Download {
                 LOGGER.error(e, "cannot assemble downloaded image");
             }
         }
-    }
-
-    /**
-     * Determine the model classes selected for writing as XML.
-     * @param parsedOptions the selected command-line options
-     * @return the selected model classes, never {@code null}
-     */
-    private static Set<Class<? extends IObject>> getModelClasses(OptionParser.Chosen parsedOptions) {
-        final Set<Class<? extends IObject>> modelClasses = new HashSet<>();
-        modelClasses.add(Project.class);
-        modelClasses.add(Dataset.class);
-        modelClasses.add(Folder.class);
-        modelClasses.add(Experiment.class);
-        modelClasses.add(Instrument.class);
-        modelClasses.add(Image.class);
-        modelClasses.add(Screen.class);
-        modelClasses.add(Plate.class);
-        modelClasses.add(Annotation.class);
-        modelClasses.add(Roi.class);
-        final Iterator<Class<? extends IObject>> modelClassIterator = modelClasses.iterator();
-        while (modelClassIterator.hasNext()) {
-            final Class<? extends IObject> modelClass = modelClassIterator.next();
-            if (!parsedOptions.isObjectType(modelClass.getSimpleName().toLowerCase())) {
-                modelClassIterator.remove();
-            }
-        }
-        return modelClasses;
     }
 
     /**

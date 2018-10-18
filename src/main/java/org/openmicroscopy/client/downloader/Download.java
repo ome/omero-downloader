@@ -563,7 +563,7 @@ public class Download {
      * @param argv the command-line options
      */
     public static void main(String argv[]) {
-        DebugTools.enableLogging("WARN");
+        DebugTools.enableLogging("ERROR");
 
         /* parse and validate the command-line options and connect to the OMERO server */
         final OptionParser.Chosen parsedOptions = OptionParser.parse(argv);

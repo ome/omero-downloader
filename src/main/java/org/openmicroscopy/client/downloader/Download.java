@@ -656,10 +656,6 @@ public class Download {
                 exportImages(fileMapper, containment, imageIds,
                         parsedOptions.isFileType("tiff"), parsedOptions.isFileType("ome-tiff"));
             }
-
-            if (parsedOptions.isFileType("ome-xml")) {
-                LOGGER.error(null, "OME-XML export is not yet implemented");
-            }
         }
 
         /* write the requested metadata */
@@ -667,8 +663,13 @@ public class Download {
             toWrite.removeAll(ModelType.IMAGE);
         }
         if (!toWrite.isEmpty()) {
-            /* write model objects as XML */
-            writeXmlObjects(containment, toWrite);
+            if (parsedOptions.isFileType("ome-xml-whole")) {
+                /* write model objects into one XML file with Ref elements */
+                LOGGER.error(null, "OME-XML cross-referenced file export is not yet implemented");
+            } else if (parsedOptions.isFileType("ome-xml-parts")) {
+                /* write model objects split into separate XML files using symbolic links to show cross-references */
+                writeXmlObjects(containment, toWrite);
+            }
         }
 
         /* all done with the server */

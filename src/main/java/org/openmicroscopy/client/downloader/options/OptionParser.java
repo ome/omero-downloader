@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 University of Dundee & Open Microscopy Environment.
+ * Copyright (C) 2016-2018 University of Dundee & Open Microscopy Environment.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -138,11 +138,11 @@ public class OptionParser {
     }
 
     private static final OptionSet fileTypes = new OptionSet(Arrays.asList(
-            "binary", "companion", "tiff", "ome-tiff", "ome-xml"),
+            "binary", "companion", "tiff", "ome-tiff", "ome-xml-whole", "ome-xml-parts"),
             Collections.<String>emptySet());
     private static final OptionSet objectTypes = new OptionSet(Arrays.asList(
             "project", "dataset", "folder", "experiment", "instrument", "image", "screen", "plate", "annotation", "roi"),
-            Collections.<String>emptySet());
+            Arrays.asList("image", "roi"));
     private static final OptionSet linkTypes = new OptionSet(Arrays.asList(
             "fileset", "image"),
             Arrays.asList("fileset", "image"));

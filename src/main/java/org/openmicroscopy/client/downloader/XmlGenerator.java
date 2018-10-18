@@ -520,7 +520,7 @@ public class XmlGenerator {
         }
         System.out.print("..");
         try {
-            for (final List<Long> idBatch : Lists.partition(ids, BATCH_SIZE)) {
+            for (final List<Long> idBatch : Lists.partition(ImmutableList.copyOf(files.keySet()), BATCH_SIZE)) {
                 System.out.print('.');
                 System.out.flush();
                 final ImmutableMap.Builder<Long, File> toWrite = ImmutableMap.builder();

@@ -58,7 +58,6 @@ import omero.RString;
 import omero.RType;
 import omero.ServerError;
 import omero.api.IConfigPrx;
-import omero.api.IPixelsPrx;
 import omero.api.IQueryPrx;
 import omero.api.RawFileStorePrx;
 import omero.api.RawPixelsStorePrx;
@@ -154,7 +153,6 @@ public class Download {
     private static OMEXMLService omeXmlService = null;
     private static SecurityContext ctx = null;
     private static IConfigPrx iConfig = null;
-    private static IPixelsPrx iPixels = null;
     private static IQueryPrx iQuery = null;
     private static RawFileStorePrx remoteFiles = null;
     private static RawPixelsStorePrx remotePixels = null;
@@ -225,7 +223,6 @@ public class Download {
         SharedResourcesPrx sharedResources = null;
         try {
             iConfig = GATEWAY.getConfigService(ctx);
-            iPixels = GATEWAY.getPixelsService(ctx);
             iQuery = GATEWAY.getQueryService(ctx);
             remoteFiles = GATEWAY.getRawFileService(ctx);
             remotePixels = GATEWAY.getPixelsStore(ctx);

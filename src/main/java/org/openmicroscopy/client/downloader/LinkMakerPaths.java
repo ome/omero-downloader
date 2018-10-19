@@ -33,7 +33,7 @@ import com.google.common.collect.Maps;
  * Manage the symbolic links among the local mirror of the server repository and exported model objects.
  * @author m.t.b.carroll@dundee.ac.uk
  */
-public class LinkMaker {
+public class LinkMakerPaths {
 
     private final LocalPaths localPaths;
 
@@ -44,7 +44,7 @@ public class LinkMaker {
      * Create a new symbolic link maker.
      * @param localPaths the local paths provider
      */
-    public LinkMaker(LocalPaths localPaths) {
+    public LinkMakerPaths(LocalPaths localPaths) {
         this.localPaths = localPaths;
     }
 

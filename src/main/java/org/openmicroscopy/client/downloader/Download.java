@@ -161,7 +161,7 @@ public class Download {
     private static RequestManager requests = null;
     private static FileManager files = null;
     private static LocalPaths paths = null;
-    private static LinkMaker links = null;
+    private static LinkMakerPaths links = null;
     private static XmlGenerator xmlGenerator = null;
 
     /**
@@ -255,7 +255,7 @@ public class Download {
             System.exit(3);
         }
 
-        links = new LinkMaker(paths);
+        links = new LinkMakerPaths(paths);
         requests = new RequestManager(GATEWAY, ctx, 250);
     }
 

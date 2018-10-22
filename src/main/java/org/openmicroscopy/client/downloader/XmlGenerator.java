@@ -62,13 +62,23 @@ import omero.api.IConfigPrx;
 import omero.api.IQueryPrx;
 import omero.log.Logger;
 import omero.log.SimpleLogger;
+import omero.model.Annotation;
+import omero.model.BooleanAnnotation;
+import omero.model.CommentAnnotation;
+import omero.model.DoubleAnnotation;
 import omero.model.IObject;
 import omero.model.Image;
+import omero.model.LongAnnotation;
 import omero.model.Mask;
 import omero.model.Roi;
 import omero.model.Shape;
+import omero.model.TagAnnotation;
+import omero.model.TermAnnotation;
+import omero.model.TimestampAnnotation;
+import omero.model.XmlAnnotation;
 import omero.sys.ParametersI;
 
+import org.openmicroscopy.client.downloader.metadata.AnnotationMetadata;
 import org.openmicroscopy.client.downloader.metadata.ImageMetadata;
 import org.openmicroscopy.client.downloader.metadata.RoiMetadata;
 
@@ -261,6 +271,25 @@ public class XmlGenerator {
     }
 
     /**
+     * Query the server for the given annotations.
+     * @param ids the IDs of the annotations to retrieve from OMERO
+     * @return the annotations, hydrated sufficiently for conversion to XML
+     * @throws ServerError if the annotations could not be retrieved
+     */
+    private List<Annotation> getAnnotations(Collection<Long> ids) throws ServerError {
+        if (ids.isEmpty()) {
+            return Collections.emptyList();
+        }
+        final List<Annotation> annotations = new ArrayList<>(ids.size());
+        for (final IObject result : iQuery.findAllByQuery(
+                "FROM Annotation a " +
+                "WHERE a.id IN (:ids)", new ParametersI().addIds(ids))) {
+            annotations.add((Annotation) result);
+        }
+        return annotations;
+    }
+
+    /**
      * Query the server for the given images.
      * @param ids the IDs of the images to retrieve from OMERO
      * @return the images, hydrated sufficiently for conversion to XML
@@ -346,6 +375,19 @@ public class XmlGenerator {
     }
 
     /**
+     * Write the given annotations from the server into the given metadata store.
+     * @param ids the IDs of the annotations to write
+     * @param destination the metadata store into which to write the annotations
+     * @throws ServerError if the annotations could not be read
+     */
+    public void writeAnnotations(List<Long> ids, MetadataStore destination) throws ServerError {
+        for (final List<Long> annotationIdBatch : Lists.partition(ids, BATCH_SIZE)) {
+            final List<Annotation> annotations = getAnnotations(annotationIdBatch);
+            omeXmlService.convertMetadata(new AnnotationMetadata(lsidGetter, annotations), destination);
+        }
+    }
+
+    /**
      * Write the given images from the server into the given metadata store.
      * @param ids the IDs of the images to write
      * @param destination the metadata store into which to write the images
@@ -388,6 +430,53 @@ public class XmlGenerator {
             }
             omeXmlService.convertMetadata(new RoiMetadata(lsidGetter, rois), destination);
         }
+    }
+
+    /**
+     * Write the given annotations locally as XML.
+     * @param ids the IDs of the annotations to write
+     * @param destinations how to determine the files into which to write the annotations
+     */
+    public void writeAnnotations(List<Long> ids, Function<Long, File> destinations) {
+        writeElements(ids, destinations, new ModelObjectWriter() {
+            @Override
+            public String getObjectsName() {
+                return "annotations";
+            }
+
+            @Override
+            public void writeObjects(Map<Long, File> toWrite)
+                    throws IOException, ServerError, ServiceException, TransformerException {
+                for (final Annotation annotation : getAnnotations(toWrite.keySet())) {
+                    final OMEXMLMetadata metadata = omeXmlService.createOMEXMLMetadata();
+                    metadata.createRoot();
+                    omeXmlService.convertMetadata(new AnnotationMetadata(lsidGetter, Collections.singletonList(annotation)),
+                            metadata);
+                    final OME omeElement = (OME) metadata.getRoot();
+                    final ome.xml.model.Annotation annotationElement;
+                    if (annotation instanceof BooleanAnnotation) {
+                        annotationElement = omeElement.getStructuredAnnotations().getBooleanAnnotation(0);
+                    } else if (annotation instanceof CommentAnnotation) {
+                        annotationElement = omeElement.getStructuredAnnotations().getCommentAnnotation(0);
+                    } else if (annotation instanceof DoubleAnnotation) {
+                        annotationElement = omeElement.getStructuredAnnotations().getDoubleAnnotation(0);
+                    } else if (annotation instanceof LongAnnotation) {
+                        annotationElement = omeElement.getStructuredAnnotations().getLongAnnotation(0);
+                    } else if (annotation instanceof TagAnnotation) {
+                        annotationElement = omeElement.getStructuredAnnotations().getTagAnnotation(0);
+                    } else if (annotation instanceof TermAnnotation) {
+                        annotationElement = omeElement.getStructuredAnnotations().getTermAnnotation(0);
+                    } else if (annotation instanceof TimestampAnnotation) {
+                        annotationElement = omeElement.getStructuredAnnotations().getTimestampAnnotation(0);
+                    } else if (annotation instanceof XmlAnnotation) {
+                        annotationElement = omeElement.getStructuredAnnotations().getXMLAnnotation(0);
+                    } else {
+                        continue;
+                    }
+                    writeElement(annotationElement, toWrite.get(annotation.getId().getValue()));
+                }
+            }
+        });
     }
 
     /**

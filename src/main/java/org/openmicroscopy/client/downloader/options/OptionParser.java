@@ -142,7 +142,7 @@ public class OptionParser {
             Collections.<String>emptySet());
     private static final OptionSet objectTypes = new OptionSet(Arrays.asList(
             "project", "dataset", "folder", "experiment", "instrument", "image", "screen", "plate", "annotation", "roi"),
-            Arrays.asList("image", "roi"));
+            Arrays.asList("image", "annotation", "roi"));
     private static final OptionSet linkTypes = new OptionSet(Arrays.asList(
             "fileset", "image"),
             Arrays.asList("fileset", "image"));

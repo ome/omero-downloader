@@ -429,16 +429,40 @@ public class Download {
             try {
                 metadata = omeXmlService.createOMEXMLMetadata();
                 metadata.createRoot();
+                SetMultimap<Long, Long> imageAnnotationMap = containment.get(
+                        Maps.immutableEntry(ModelType.IMAGE, ModelType.ANNOTATION));
+                SetMultimap<Long, Long> roiAnnotationMap = containment.get(
+                        Maps.immutableEntry(ModelType.ROI, ModelType.ANNOTATION));
                 SetMultimap<Long, Long> imageRoiMap = containment.get(
                         Maps.immutableEntry(ModelType.IMAGE, ModelType.ROI));
+                if (imageAnnotationMap == null) {
+                    imageAnnotationMap = ImmutableSetMultimap.of();
+                }
+                if (roiAnnotationMap == null) {
+                    roiAnnotationMap = ImmutableSetMultimap.of();
+                }
                 if (imageRoiMap == null) {
                     imageRoiMap = ImmutableSetMultimap.of();
                 }
+                final Set<Long> annotationIds = new HashSet<>();
                 final Set<Long> roiIds = new HashSet<>();
+                annotationIds.addAll(imageAnnotationMap.get(imageId));
                 roiIds.addAll(imageRoiMap.get(imageId));
+                for (final long roiId : roiIds) {
+                    annotationIds.addAll(roiAnnotationMap.get(roiId));
+                }
+                xmlGenerator.writeAnnotations(ImmutableList.copyOf(annotationIds), metadata);
                 xmlGenerator.writeImages(Collections.singletonList(imageId), metadata);
                 xmlGenerator.writeRois(ImmutableList.copyOf(roiIds), metadata);
                 final LinkMakerMetadata metadataLinker = new LinkMakerMetadata(metadata);
+                for (final long annotationId : imageAnnotationMap.get(imageId)) {
+                    metadataLinker.linkModelObjects(ModelType.IMAGE, imageId, ModelType.ANNOTATION, annotationId);
+                }
+                for (final long roiId : roiIds) {
+                    for (final long annotationId : roiAnnotationMap.get(roiId)) {
+                        metadataLinker.linkModelObjects(ModelType.ROI, roiId, ModelType.ANNOTATION, annotationId);
+                    }
+                }
                 for (final long roiId : imageRoiMap.get(imageId)) {
                     metadataLinker.linkModelObjects(ModelType.IMAGE, imageId, ModelType.ROI, roiId);
                 }
@@ -520,6 +544,16 @@ public class Download {
      */
     private static void writeXmlObjects(Map<Map.Entry<ModelType, ModelType>, SetMultimap<Long, Long>> containment,
             final SetMultimap<ModelType, Long> objects) {
+        if (objects.containsKey(ModelType.ANNOTATION)) {
+            xmlGenerator.writeAnnotations(ImmutableList.copyOf(objects.get(ModelType.ANNOTATION)), new Function<Long, File>() {
+                @Override
+                public File apply(Long id) {
+                    final File file = paths.getMetadataFile(ModelType.ANNOTATION, id);
+                    file.getParentFile().mkdirs();
+                    return file;
+                }
+            });
+        }
         if (objects.containsKey(ModelType.IMAGE)) {
             xmlGenerator.writeImages(ImmutableList.copyOf(objects.get(ModelType.IMAGE)), new Function<Long, File>() {
                 @Override

@@ -20,6 +20,7 @@
 package org.openmicroscopy.client.downloader;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -36,8 +37,13 @@ import com.google.common.collect.Maps;
  */
 public class LinkMakerMetadata {
 
+    private static enum AnnotationType {
+        BOOLEAN, COMMENT, DOUBLE, LONG, TAG, TERM, TIMESTAMP, XML;
+    }
+
     private final IMetadata metadata;
     private final Set<Map.Entry<Map.Entry<ModelType, Long>, Map.Entry<ModelType, Long>>> existingLinks = new HashSet<>();
+    private final Map<Long, AnnotationType> annotationTypes = new HashMap<>();
     private final Map<ModelType, Map<Long, Integer>> indices;
 
     /**
@@ -49,6 +55,7 @@ public class LinkMakerMetadata {
         final ImmutableMap.Builder<ModelType, Map<Long, Integer>> indexMap = ImmutableMap.builder();
         for (final ModelType modelType : ModelType.values()) {
             switch (modelType) {
+                case ANNOTATION:
                 case IMAGE:
                 case ROI:
                     /* will be populated below */
@@ -57,6 +64,88 @@ public class LinkMakerMetadata {
                     indexMap.put(modelType, Collections.<Long, Integer>emptyMap());
             }
         }
+        final ImmutableMap.Builder<Long, Integer> annotationMap = ImmutableMap.builder();
+        try {
+            buildMetadataIndex(annotationMap, AnnotationType.BOOLEAN, new Function<Integer, String>() {
+                @Override
+                public String apply(Integer index) {
+                    return metadata.getBooleanAnnotationID(index);
+                }
+            }, metadata.getBooleanAnnotationCount());
+        } catch (NullPointerException npe) {
+            /* count is zero so move on to next */
+        }
+        try {
+            buildMetadataIndex(annotationMap, AnnotationType.COMMENT, new Function<Integer, String>() {
+                @Override
+                public String apply(Integer index) {
+                    return metadata.getCommentAnnotationID(index);
+                }
+            }, metadata.getCommentAnnotationCount());
+        } catch (NullPointerException npe) {
+            /* count is zero so move on to next */
+        }
+        try {
+            buildMetadataIndex(annotationMap, AnnotationType.DOUBLE, new Function<Integer, String>() {
+                @Override
+                public String apply(Integer index) {
+                    return metadata.getDoubleAnnotationID(index);
+                }
+            }, metadata.getDoubleAnnotationCount());
+        } catch (NullPointerException npe) {
+            /* count is zero so move on to next */
+        }
+        try {
+            buildMetadataIndex(annotationMap, AnnotationType.LONG, new Function<Integer, String>() {
+                @Override
+                public String apply(Integer index) {
+                    return metadata.getLongAnnotationID(index);
+                }
+            }, metadata.getLongAnnotationCount());
+        } catch (NullPointerException npe) {
+            /* count is zero so move on to next */
+        }
+        try {
+            buildMetadataIndex(annotationMap, AnnotationType.TAG, new Function<Integer, String>() {
+                @Override
+                public String apply(Integer index) {
+                    return metadata.getTagAnnotationID(index);
+                }
+            }, metadata.getTagAnnotationCount());
+        } catch (NullPointerException npe) {
+            /* count is zero so move on to next */
+        }
+        try {
+            buildMetadataIndex(annotationMap, AnnotationType.TERM, new Function<Integer, String>() {
+                @Override
+                public String apply(Integer index) {
+                    return metadata.getTermAnnotationID(index);
+                }
+            }, metadata.getTermAnnotationCount());
+        } catch (NullPointerException npe) {
+            /* count is zero so move on to next */
+        }
+        try {
+            buildMetadataIndex(annotationMap, AnnotationType.TIMESTAMP, new Function<Integer, String>() {
+                @Override
+                public String apply(Integer index) {
+                    return metadata.getTimestampAnnotationID(index);
+                }
+            }, metadata.getTimestampAnnotationCount());
+        } catch (NullPointerException npe) {
+            /* count is zero so move on to next */
+        }
+        try {
+            buildMetadataIndex(annotationMap, AnnotationType.XML, new Function<Integer, String>() {
+                @Override
+                public String apply(Integer index) {
+                    return metadata.getXMLAnnotationID(index);
+                }
+            }, metadata.getXMLAnnotationCount());
+        } catch (NullPointerException npe) {
+            /* count is zero so move on to next */
+        }
+        indexMap.put(ModelType.ANNOTATION, annotationMap.build());
         int imageCount;
         try {
             imageCount = metadata.getImageCount();
@@ -64,7 +153,7 @@ public class LinkMakerMetadata {
             imageCount = 0;
         }
         indexMap.put(ModelType.IMAGE, imageCount == 0 ? Collections.<Long, Integer>emptyMap() :
-                 buildMetadataIndex(ImmutableMap.<Long, Integer>builder(), new Function<Integer, String>() {
+                 buildMetadataIndex(ImmutableMap.<Long, Integer>builder(), null, new Function<Integer, String>() {
                     @Override
                     public String apply(Integer index) {
                         return metadata.getImageID(index);
@@ -77,7 +166,7 @@ public class LinkMakerMetadata {
             roiCount = 0;
         }
         indexMap.put(ModelType.ROI, roiCount == 0 ? Collections.<Long, Integer>emptyMap() :
-                buildMetadataIndex(ImmutableMap.<Long, Integer>builder(), new Function<Integer, String>() {
+                buildMetadataIndex(ImmutableMap.<Long, Integer>builder(), null, new Function<Integer, String>() {
                     @Override
                     public String apply(Integer index) {
                         return metadata.getROIID(index);
@@ -87,20 +176,25 @@ public class LinkMakerMetadata {
     }
 
     /**
-     * Construct a directory of metadata LSIDs for model object IDs.
-     * @param getLsid gets the LSID for the given index
+     * Construct a directory of metadata indices for model object IDs.
+     * @param idsToIndices a map from OMERO object ID to index in metadata store
+     * @param annotationType the type of annotation that these objects are or {@code null} if they are not annotations
+     * @param getLsid gets the LSID for a given index
      * @param count how many LSIDs are available
-     * @return a directory of from model object ID to metadata index
+     * @return a directory from model object ID to metadata index
      * @see #getLsid(omero.model.IObject)
      */
     private ImmutableMap.Builder<Long, Integer> buildMetadataIndex(ImmutableMap.Builder<Long, Integer> idsToIndices,
-            Function<Integer, String> getLsid, int count) {
+            AnnotationType annotationType, Function<Integer, String> getLsid, int count) {
         for (int index = 0; index < count; index++) {
             final String lsid = getLsid.apply(index);
             final int underscore = lsid.lastIndexOf('_');
             final int colon = lsid.lastIndexOf(':');
             final long id = Long.parseLong(lsid.substring(underscore + 1, colon));
             idsToIndices.put(id, index);
+            if (annotationType != null) {
+                annotationTypes.put(id, annotationType);
+            }
         }
         return idsToIndices;
     }
@@ -129,6 +223,36 @@ public class LinkMakerMetadata {
         }
         final String lsid;
         switch (toObjectType) {
+            case ANNOTATION:
+                switch (annotationTypes.get(toObjectId)) {
+                    case BOOLEAN:
+                        lsid = metadata.getBooleanAnnotationID(toIndex);
+                        break;
+                    case COMMENT:
+                        lsid = metadata.getCommentAnnotationID(toIndex);
+                        break;
+                    case DOUBLE:
+                        lsid = metadata.getDoubleAnnotationID(toIndex);
+                        break;
+                    case LONG:
+                        lsid = metadata.getLongAnnotationID(toIndex);
+                        break;
+                    case TAG:
+                        lsid = metadata.getTagAnnotationID(toIndex);
+                        break;
+                    case TERM:
+                        lsid = metadata.getTermAnnotationID(toIndex);
+                        break;
+                    case TIMESTAMP:
+                        lsid = metadata.getTimestampAnnotationID(toIndex);
+                        break;
+                    case XML:
+                        lsid = metadata.getXMLAnnotationID(toIndex);
+                        break;
+                    default:
+                        return;
+                }
+                break;
             case IMAGE:
                 lsid = metadata.getImageID(toIndex);
                 break;
@@ -139,10 +263,64 @@ public class LinkMakerMetadata {
                 return;
         }
         switch (fromObjectType) {
+            case ANNOTATION:
+                switch (fromObjectType) {
+                    case ANNOTATION:
+                        switch (annotationTypes.get(fromObjectId)) {
+                            case BOOLEAN:
+                                metadata.setBooleanAnnotationAnnotationRef(lsid, fromIndex,
+                                        metadata.getBooleanAnnotationAnnotationCount(fromIndex));
+                                break;
+                            case COMMENT:
+                                metadata.setCommentAnnotationAnnotationRef(lsid, fromIndex,
+                                        metadata.getCommentAnnotationAnnotationCount(fromIndex));
+                                break;
+                            case DOUBLE:
+                                metadata.setDoubleAnnotationAnnotationRef(lsid, fromIndex,
+                                        metadata.getDoubleAnnotationAnnotationCount(fromIndex));
+                                break;
+                            case LONG:
+                                metadata.setLongAnnotationAnnotationRef(lsid, fromIndex,
+                                        metadata.getLongAnnotationAnnotationCount(fromIndex));
+                                break;
+                            case TAG:
+                                metadata.setTagAnnotationAnnotationRef(lsid, fromIndex,
+                                        metadata.getTagAnnotationAnnotationCount(fromIndex));
+                                break;
+                            case TERM:
+                                metadata.setTermAnnotationAnnotationRef(lsid, fromIndex,
+                                        metadata.getTermAnnotationAnnotationCount(fromIndex));
+                                break;
+                            case TIMESTAMP:
+                                metadata.setTimestampAnnotationAnnotationRef(lsid, fromIndex,
+                                        metadata.getTimestampAnnotationAnnotationCount(fromIndex));
+                                break;
+                            case XML:
+                                metadata.setXMLAnnotationAnnotationRef(lsid, fromIndex,
+                                        metadata.getXMLAnnotationAnnotationCount(fromIndex));
+                                break;
+                            default:
+                                return;
+                        }
+                        break;
+                }
+                break;
             case IMAGE:
                 switch (toObjectType) {
+                    case ANNOTATION:
+                        metadata.setImageAnnotationRef(lsid, fromIndex, metadata.getImageAnnotationRefCount(fromIndex));
+                        break;
                     case ROI:
                         metadata.setImageROIRef(lsid, fromIndex, metadata.getImageROIRefCount(fromIndex));
+                        break;
+                    default:
+                        return;
+                }
+                break;
+            case ROI:
+                switch (toObjectType) {
+                    case ANNOTATION:
+                        metadata.setROIAnnotationRef(lsid, fromIndex, metadata.getROIAnnotationRefCount(fromIndex));
                         break;
                     default:
                         return;

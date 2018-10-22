@@ -25,6 +25,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.SetMultimap;
@@ -428,17 +429,18 @@ public class Download {
             try {
                 metadata = omeXmlService.createOMEXMLMetadata();
                 metadata.createRoot();
-                final SetMultimap<Long, Long> roiMap = containment.get(Maps.immutableEntry(ModelType.IMAGE, ModelType.ROI));
-                final Set<Long> roiIds = roiMap == null ? Collections.<Long>emptySet() : ImmutableSet.copyOf(roiMap.get(imageId));
+                SetMultimap<Long, Long> imageRoiMap = containment.get(
+                        Maps.immutableEntry(ModelType.IMAGE, ModelType.ROI));
+                if (imageRoiMap == null) {
+                    imageRoiMap = ImmutableSetMultimap.of();
+                }
+                final Set<Long> roiIds = new HashSet<>();
+                roiIds.addAll(imageRoiMap.get(imageId));
                 xmlGenerator.writeImages(Collections.singletonList(imageId), metadata);
                 xmlGenerator.writeRois(ImmutableList.copyOf(roiIds), metadata);
-                final Map<ModelType, Map<Long, Integer>> indices = xmlGenerator.getMetadataIndicesForModelObjects(metadata);
-                final Map<Long, Integer> imageIndices = indices.get(ModelType.IMAGE);
-                final Map<Long, Integer> roiIndices = indices.get(ModelType.ROI);
-                final int imageIndex = imageIndices.get(imageId);
-                for (final long roiId : roiIds) {
-                    final int roiIndex = roiIndices.get(roiId);
-                    metadata.setImageROIRef(metadata.getROIID(roiIndex), imageIndex, roiIndex);
+                final LinkMakerMetadata metadataLinker = new LinkMakerMetadata(metadata);
+                for (final long roiId : imageRoiMap.get(imageId)) {
+                    metadataLinker.linkModelObjects(ModelType.IMAGE, imageId, ModelType.ROI, roiId);
                 }
                 /* TODO: Workaround for a curious legacy issue that may yet be fixed. */
                 metadata.setPixelsBigEndian(true, 0);

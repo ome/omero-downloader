@@ -48,7 +48,6 @@ import javax.xml.transform.TransformerException;
 
 import loci.common.services.ServiceException;
 import loci.common.xml.XMLTools;
-import loci.formats.meta.MetadataRetrieve;
 import loci.formats.meta.MetadataStore;
 import loci.formats.ome.OMEXMLMetadata;
 import loci.formats.services.OMEXMLService;
@@ -174,53 +173,6 @@ public class XmlGenerator {
     };
 
     /**
-     * Construct a directory of metadata LSIDs for model object IDs.
-     * @param getLsid gets the LSID for the given index
-     * @param count how many LSIDs are available
-     * @return a directory of from model object ID to metadata index
-     * @see #getLsid(omero.model.IObject) 
-     */
-    private static Map<Long, Integer> buildMetadataIndex(Function<Integer, String> getLsid, int count) {
-        final ImmutableMap.Builder<Long, Integer> idsToIndices = ImmutableMap.builder();
-        for (int index = 0; index < count; index++) {
-            final String lsid = getLsid.apply(index);
-            final int underscore = lsid.lastIndexOf('_');
-            final int colon = lsid.lastIndexOf(':');
-            final long id = Long.parseLong(lsid.substring(underscore + 1, colon));
-            idsToIndices.put(id, index);
-        }
-        return idsToIndices.build();
-    }
-
-    /**
-     * From the given metadata store determine its corresponding index argument for each model object.
-     * @param metadata a metadata store
-     * @return a directory of index arguments for model objects
-     */
-    public Map<ModelType, Map<Long, Integer>> getMetadataIndicesForModelObjects(final MetadataRetrieve metadata) {
-        final ImmutableMap.Builder<ModelType, Map<Long, Integer>> indexMap = ImmutableMap.builder();
-        final int imageCount = metadata.getImageCount();
-        if (imageCount > 0) {
-            indexMap.put(ModelType.IMAGE, buildMetadataIndex(new Function<Integer, String>() {
-                @Override
-                public String apply(Integer index) {
-                    return metadata.getImageID(index);
-                }
-            }, imageCount));
-        }
-        final int roiCount = metadata.getROICount();
-        if (roiCount > 0) {
-            indexMap.put(ModelType.ROI, buildMetadataIndex(new Function<Integer, String>() {
-                @Override
-                public String apply(Integer index) {
-                    return metadata.getROIID(index);
-                }
-            }, roiCount));
-        }
-        return indexMap.build();
-    }
-
-    /**
      * Query the parent-child relationships among model objects.
      * @param listener the listener to notify of parent-child relationships
      * @param objects the parents from which to start the query
@@ -322,8 +274,6 @@ public class XmlGenerator {
         for (final IObject result : iQuery.findAllByQuery(
                 "FROM Image i " +
                 "LEFT OUTER JOIN FETCH i.pixels AS p " +
-                "LEFT OUTER JOIN FETCH i.annotationLinks AS i_a_link " +
-                "LEFT OUTER JOIN FETCH i_a_link.child AS i_a " +
                 "LEFT OUTER JOIN FETCH p.channels AS c " +
                 "LEFT OUTER JOIN FETCH c.logicalChannel AS l " +
                 "LEFT OUTER JOIN FETCH p.pixelsType " +
@@ -332,7 +282,6 @@ public class XmlGenerator {
                 "LEFT OUTER JOIN FETCH l.mode " +
                 "LEFT OUTER JOIN FETCH p.details.updateEvent " +
                 "LEFT OUTER JOIN FETCH c.details.updateEvent " +
-                "LEFT OUTER JOIN FETCH i_a.details.updateEvent " +
                 "WHERE i.id IN (:ids)", new ParametersI().addIds(ids))) {
             images.add((Image) result);
         }
@@ -353,14 +302,8 @@ public class XmlGenerator {
         for (final IObject result : iQuery.findAllByQuery(
                 "FROM Roi r " +
                 "LEFT OUTER JOIN FETCH r.shapes AS s " +
-                "LEFT OUTER JOIN FETCH r.annotationLinks AS r_a_link " +
-                "LEFT OUTER JOIN FETCH r_a_link.child AS r_a " +
-                "LEFT OUTER JOIN FETCH s.annotationLinks AS s_a_link " +
-                "LEFT OUTER JOIN FETCH s_a_link.child AS s_a " +
                 "LEFT OUTER JOIN FETCH r.details.updateEvent " +
                 "LEFT OUTER JOIN FETCH s.details.updateEvent " +
-                "LEFT OUTER JOIN FETCH r_a.details.updateEvent " +
-                "LEFT OUTER JOIN FETCH s_a.details.updateEvent " +
                 "WHERE r.id IN (:ids)", new ParametersI().addIds(ids))) {
             rois.add((Roi) result);
         }
@@ -403,7 +346,7 @@ public class XmlGenerator {
     }
 
     /**
-     * Write the given images into the given metadata store.
+     * Write the given images from the server into the given metadata store.
      * @param ids the IDs of the images to write
      * @param destination the metadata store into which to write the images
      * @throws ServerError if the images could not be read
@@ -416,7 +359,7 @@ public class XmlGenerator {
     }
 
     /**
-     * Write the given ROIs into the given metadata store.
+     * Write the given ROIs from the server into the given metadata store.
      * @param ids the IDs of the ROIs to write
      * @param destination the metadata store into which to write the ROIs
      * @throws ServerError if the ROIs could not be read

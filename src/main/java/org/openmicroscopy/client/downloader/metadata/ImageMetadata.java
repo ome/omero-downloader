@@ -19,8 +19,6 @@
 
 package org.openmicroscopy.client.downloader.metadata;
 
-import com.google.common.base.Function;
-
 import java.util.List;
 
 import static ome.formats.model.UnitsFactory.convertLength;
@@ -46,10 +44,12 @@ import omero.model.Pixels;
 import omero.model.PlaneInfo;
 import omero.model.Roi;
 
+import com.google.common.base.Function;
+
 import org.joda.time.Instant;
 
 /**
- * An instance of {@link loci.formats.meta.MetadataRetrieve} that provides metadata about OMERO ROIs.
+ * An instance of {@link loci.formats.meta.MetadataRetrieve} that provides metadata about OMERO images.
  * @author m.t.b.carroll@dundee.ac.uk
  * @author Josh Moore josh at glencoesoftware.com
  * @author Chris Allan callan at blackcat.ca

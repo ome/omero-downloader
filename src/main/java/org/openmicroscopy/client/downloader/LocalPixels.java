@@ -55,7 +55,8 @@ public class LocalPixels {
 
     /**
      * Construct a new image download and assembly job.
-     * @param pixels the pixels instance for the image whose pixel data is to be downloaded
+     * @param pixelsId the ID of the pixels instance whose data is to be downloaded
+     * @param metadata metadata about the dimensionality of the pixels instance
      * @param tileFile the local file in which to store downloaded tiles from the remote image's pixel data
      * @param pixelsStore the pixels store from which to obtain pixel data from the server
      * @throws ServerError if the pixel data could not be initialized on the server

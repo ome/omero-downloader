@@ -411,24 +411,32 @@ public class XmlGenerator {
             final List<Roi> rois = getRois(roiIdBatch);
             for (final Roi roi : rois) {
                 /* TODO: Understand how to include Mask objects. */
-                if (roi.sizeOfShapes() > 0) {
-                    /* Omit any masks from the ROI's shapes. */
-                    boolean isChanged = false;
-                    final List<Shape> shapes = new ArrayList<>(roi.copyShapes());
-                    final Iterator<Shape> shapeIterator = shapes.iterator();
-                    while (shapeIterator.hasNext()) {
-                        if (shapeIterator.next() instanceof Mask) {
-                            shapeIterator.remove();
-                            isChanged = true;
-                        }
-                    }
-                    if (isChanged) {
-                        roi.clearShapes();
-                        roi.addAllShapeSet(shapes);
-                    }
-                }
+                removeMasks(roi);
             }
             omeXmlService.convertMetadata(new RoiMetadata(lsidGetter, rois), destination);
+        }
+    }
+
+    /**
+     * Remove any masks from the given ROI as they cannot yet be serialized.
+     * @param roi a ROI
+     */
+   private void removeMasks(Roi roi) {
+        if (roi.sizeOfShapes() > 0) {
+            /* Omit any masks from the ROI's shapes. */
+            boolean isChanged = false;
+            final List<Shape> shapes = new ArrayList<>(roi.copyShapes());
+            final Iterator<Shape> shapeIterator = shapes.iterator();
+            while (shapeIterator.hasNext()) {
+                if (shapeIterator.next() instanceof Mask) {
+                    shapeIterator.remove();
+                    isChanged = true;
+                }
+            }
+            if (isChanged) {
+                roi.clearShapes();
+                roi.addAllShapeSet(shapes);
+            }
         }
     }
 
@@ -522,6 +530,8 @@ public class XmlGenerator {
             public void writeObjects(Map<Long, File> toWrite)
                     throws IOException, ServerError, ServiceException, TransformerException {
                 for (final Roi roi : getRois(toWrite.keySet())) {
+                    /* TODO: Understand how to include Mask objects. */
+                    removeMasks(roi);
                     final OMEXMLMetadata xmlMeta = omeXmlService.createOMEXMLMetadata();
                     xmlMeta.createRoot();
                     omeXmlService.convertMetadata(new RoiMetadata(lsidGetter, Collections.singletonList(roi)), xmlMeta);

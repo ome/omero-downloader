@@ -17,7 +17,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-package org.openmicroscopy.client.downloader;
+package org.openmicroscopy.client.downloader.util;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -38,16 +38,16 @@ import java.util.zip.GZIPOutputStream;
  * Not thread-safe.
  * @author m.t.b.carroll@dundee.ac.uk
  */
-class FileIO implements Closeable {
+public class FileIO implements Closeable {
 
     /* Neither java.io nor java.nio make read-write file I/O simple and obvious so this class hides the hoop-jumping
      * behind a comprehensible API while making it easy to change the strategy. This would be much easier with POSIX. */
 
-    static final int INT_BYTES = Integer.SIZE >> 3;
+    public static final int INT_BYTES = Integer.SIZE >> 3;
 
-    private static final StandardOpenOption[] readOnlyOptions =
+    private static final StandardOpenOption[] READ_ONLY_OPTIONS =
             new StandardOpenOption[] {StandardOpenOption.READ};
-    private static final StandardOpenOption[] readWriteOptions =
+    private static final StandardOpenOption[] READ_WRITE_OPTIONS =
             new StandardOpenOption[] {StandardOpenOption.READ, StandardOpenOption.CREATE, StandardOpenOption.WRITE};
 
     private final FileChannel channel;
@@ -59,8 +59,8 @@ class FileIO implements Closeable {
      * @param isWritable if write operations may be required
      * @throws IOException if the handle could not be opened
      */
-    FileIO(File file, boolean isWritable) throws IOException {
-        channel = (FileChannel) Files.newByteChannel(file.toPath(), isWritable ? readWriteOptions : readOnlyOptions);
+    public FileIO(File file, boolean isWritable) throws IOException {
+        channel = (FileChannel) Files.newByteChannel(file.toPath(), isWritable ? READ_WRITE_OPTIONS : READ_ONLY_OPTIONS);
     }
 
     /**
@@ -68,7 +68,7 @@ class FileIO implements Closeable {
      * @return an integer read from the file
      * @throws IOException if the read failed
      */
-    int readInt() throws IOException {
+    public int readInt() throws IOException {
         intBuffer.position(0);
         channel.read(intBuffer);
         intBuffer.position(0);
@@ -81,7 +81,7 @@ class FileIO implements Closeable {
      * @param n the integer to write to the file
      * @throws IOException if the write failed
      */
-    void writeInt(int n) throws IOException {
+    public void writeInt(int n) throws IOException {
         intBuffer.position(0);
         intBuffer.putInt(n);
         intBuffer.position(0);
@@ -95,7 +95,7 @@ class FileIO implements Closeable {
      * @return the bytes read then decompressed from the file
      * @throws IOException if the read failed
      */
-    byte[] readBytes(int size) throws IOException {
+    public byte[] readBytes(int size) throws IOException {
         final ByteBuffer compressedStream = ByteBuffer.allocate(size);
         do {
             if (channel.read(compressedStream) < 1) {
@@ -121,7 +121,7 @@ class FileIO implements Closeable {
      * @param bytes the bytes to compress then write to the file
      * @throws IOException if the write failed
      */
-    void writeBytes(byte[] bytes) throws IOException {
+    public void writeBytes(byte[] bytes) throws IOException {
         final ByteArrayOutputStream compressedStream = new ByteArrayOutputStream();
         try (final OutputStream uncompressedView = new GZIPOutputStream(compressedStream)) {
             uncompressedView.write(bytes);
@@ -134,7 +134,7 @@ class FileIO implements Closeable {
      * @param position the position, as the byte count from the start of the file
      * @throws IOException if the position could not be set
      */
-    void seek(long position) throws IOException {
+    public void seek(long position) throws IOException {
         channel.position(position);
     }
 
@@ -143,7 +143,7 @@ class FileIO implements Closeable {
      * @return the position, as the byte count from the start of the file
      * @throws IOException if the position could not be determined
      */
-    long tell() throws IOException {
+    public long tell() throws IOException {
         return channel.position();
     }
 
@@ -151,7 +151,7 @@ class FileIO implements Closeable {
      * Flush written data to the underlying file.
      * @throws IOException if the data could not be flushed
      */
-    void flush() throws IOException {
+    public void flush() throws IOException {
         channel.force(false);
     }
 

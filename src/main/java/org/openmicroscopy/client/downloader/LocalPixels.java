@@ -35,7 +35,9 @@ import omero.ServerError;
 import omero.api.RawPixelsStorePrx;
 import omero.log.Logger;
 import omero.log.SimpleLogger;
-import omero.model.Pixels;
+
+import org.openmicroscopy.client.downloader.util.FileIO;
+import org.openmicroscopy.client.downloader.util.TileIterator;
 
 /**
  * Download a remote image's tiles into a local file and assemble them into a TIFF file.

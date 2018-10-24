@@ -17,7 +17,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-package org.openmicroscopy.client.downloader;
+package org.openmicroscopy.client.downloader.util;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -26,12 +26,12 @@ import java.util.NoSuchElementException;
  * Iterate over an image's tiles in the <em>x</em>, <em>y</em> plane respecting the dimension ordering.
  * @author m.t.b.carroll@dundee.ac.uk
  */
-class TileIterator implements Iterable<TileIterator.Tile> {
+public class TileIterator implements Iterable<TileIterator.Tile> {
 
     /**
      * A fully-specified tile.
      */
-    class Tile {
+    public class Tile {
 
         /**
          * The <em>x</em> coordinate of this tile's left side.
@@ -117,7 +117,7 @@ class TileIterator implements Iterable<TileIterator.Tile> {
      * @param tileY the maximum height of the tiles
      * @param ordering the ordering of the dimensions, may include {@code X}, {@code Y}, {@code Z}, {@code C}, {@code T}
      */
-    TileIterator(int sizeX, int sizeY, int sizeZ, int sizeC, int sizeT, int tileX, int tileY, String ordering) {
+    public TileIterator(int sizeX, int sizeY, int sizeZ, int sizeC, int sizeT, int tileX, int tileY, String ordering) {
         this.sizeX = sizeX;
         this.sizeY = sizeY;
         this.sizeZ = sizeZ;

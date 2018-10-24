@@ -32,7 +32,9 @@ import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -123,11 +125,20 @@ public class Download {
         }
 
         /**
-         * The parent model objects from which to find children recursively.
+         * Map parents and children on the local filesystem.
+         * @return this mapper
+         */
+        ParentChildMap buildFromFS() {
+            paths.getLinksFromFilesystem(this);
+            return this;
+        }
+
+        /**
+         * Map parents and children from the server, starting from the given parents.
          * @param objects some model objects
          * @return this mapper
          */
-        ParentChildMap build(SetMultimap<ModelType, Long> objects) throws ServerError {
+        ParentChildMap buildFromDB(SetMultimap<ModelType, Long> objects) throws ServerError {
             xmlGenerator.queryRelationships(this, objects);
             return this;
         }
@@ -538,7 +549,7 @@ public class Download {
     }
 
     /**
-     * Write the given model objects as XML.
+     * Write the given model objects as XML with each top-level fragment in a separate file.
      * @param containment the parent-child relationships
      * @param objects the model objects to write
      */
@@ -588,6 +599,51 @@ public class Download {
         } catch (IOException ioe) {
             LOGGER.fatal(ioe, "cannot create repository links");
             System.exit(3);
+        }
+    }
+
+    /**
+     * Write the given model objects as XML cross-referenced within an {@code OME} element.
+     * @param objects the model objects to write
+     */
+    private static void assembleReferencedXml(final SetMultimap<ModelType, Long> objects) {
+        /* map parent-child relationships */
+        final Map<Map.Entry<ModelType, ModelType>, SetMultimap<Long, Long>> containment
+                = new ParentChildMap(objects.keySet()).buildFromFS().containment;
+        if (objects.containsKey(ModelType.IMAGE)) {
+            for (final long imageId : objects.get(ModelType.IMAGE)) {
+                final String exportName = paths.getMetadataFile(ModelType.IMAGE, imageId).getName();
+                final File exportFile = paths.getExportFile(ModelType.IMAGE, imageId, exportName);
+                exportFile.getParentFile().mkdirs();
+                try (final OutputStream out = new FileOutputStream(exportFile);
+                     final XmlAssembler writer = new XmlAssembler(containment, new Function<Map.Entry<ModelType, Long>, File>() {
+                            @Override
+                            public File apply(Map.Entry<ModelType, Long> input) {
+                                return paths.getMetadataFile(input.getKey(), input.getValue());
+                            }
+                        }, out)) {
+                    /* determine what to write */
+                    SetMultimap<Long, Long> children;
+                    final Set<Long> annotationIds = new HashSet<>();  // TODO
+                    final Set<Long> roiIds = new HashSet<>();
+                    children = containment.get(Maps.immutableEntry(ModelType.IMAGE, ModelType.ROI));
+                    if (children != null) {
+                        roiIds.addAll(children.get(imageId));
+                    }
+                    /* perform writes */
+                    writer.writeImage(imageId);
+                    for (final long roiId : roiIds) {
+                        writer.writeRoi(roiId);
+                    }
+                } catch (IOException ioe) {
+                    LOGGER.fatal(ioe, "cannot create OME-XML file");
+                    System.exit(3);
+                }
+            }
+        } else if (objects.containsKey(ModelType.ROI)) {
+            // TODO
+        } else if (objects.containsKey(ModelType.ANNOTATION)) {
+            // TODO
         }
     }
 
@@ -670,7 +726,7 @@ public class Download {
         /* map parent-child relationships */
         Map<Map.Entry<ModelType, ModelType>, SetMultimap<Long, Long>> containment = null;
         try {
-            containment = new ParentChildMap(toWrite.keySet()).build(toWrite).containment;
+            containment = new ParentChildMap(toWrite.keySet()).buildFromDB(toWrite).containment;
         } catch (ServerError se) {
             LOGGER.fatal(se, "cannot use query service");
             System.exit(3);
@@ -695,18 +751,18 @@ public class Download {
         if (!parsedOptions.isObjectType("image")) {
             toWrite.removeAll(ModelType.IMAGE);
         }
-        if (!toWrite.isEmpty()) {
-            if (parsedOptions.isFileType("ome-xml-whole")) {
-                /* write model objects into one XML file with Ref elements */
-                LOGGER.error(null, "OME-XML cross-referenced file export is not yet implemented");
-            } else if (parsedOptions.isFileType("ome-xml-parts")) {
-                /* write model objects split into separate XML files using symbolic links to show cross-references */
-                writeXmlObjects(containment, toWrite);
-            }
+        if (!toWrite.isEmpty() && parsedOptions.isFileType("ome-xml-parts")) {
+            /* write model objects split into separate XML files using symbolic links to show cross-references */
+            writeXmlObjects(containment, toWrite);
         }
 
         /* all done with the server */
         closeDownServices();
         GATEWAY.disconnect();
+
+        if (parsedOptions.isFileType("ome-xml-whole")) {
+            /* assemble model objects from separate XML files into one XML file with Ref elements */
+            assembleReferencedXml(toWrite);
+        }
     }
 }

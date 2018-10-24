@@ -20,6 +20,7 @@
 package org.openmicroscopy.client.downloader;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
 import java.util.Map;
 
@@ -35,6 +36,13 @@ import com.google.common.collect.ImmutableMap;
  * @author m.t.b.carroll@dundee.ac.uk
  */
 public class LocalPaths {
+
+    private static final FileFilter IS_DIRECTORY = new FileFilter() {
+        @Override
+        public boolean accept(File file) {
+            return file.isDirectory();
+        }
+    };
 
     private static final Function<String, String> SANITIZER = new MakePathComponentSafe(
             FilePathRestrictionInstance.getFilePathRestrictions(FilePathRestrictionInstance.LOCAL_REQUIRED));
@@ -203,5 +211,55 @@ public class LocalPaths {
         final StringBuilder outerFile = getModelObjectPrefix(outerObjectType, outerObjectId);
         final StringBuilder innerFile = getModelObjectPrefix(innerObjectType, innerObjectId);
         return new File(base, outerFile.toString() + innerFile.toString());
+    }
+
+    /**
+     * Determine relationships among model objects.
+     * Ignores relationships among objects that have no OME-XML metadata saved.
+     * @param listener to be notified of relationships
+     */
+    public void getLinksFromFilesystem(XmlGenerator.ContainmentListener listener) {
+        for (final ModelType outerObjectType : ModelType.values()) {
+            if (!listener.isWanted(outerObjectType)) {
+                continue;
+            }
+            final File fileOuterType = new File(base, outerObjectType.toString());
+            if (!IS_DIRECTORY.accept(fileOuterType)) {
+                continue;
+            }
+            for (final File fileOuterObject : fileOuterType.listFiles(IS_DIRECTORY)) {
+                final long outerObjectId;
+                try {
+                    outerObjectId = Long.parseLong(fileOuterObject.getName());
+                } catch (NumberFormatException nfe) {
+                    continue;
+                }
+                if (!getMetadataFile(outerObjectType, outerObjectId).isFile()) {
+                    continue;
+                }
+                for (final ModelType innerObjectType : ModelType.values()) {
+                    if (!listener.isWanted(innerObjectType)) {
+                        continue;
+                    }
+                    final File fileOuterObjectInnerType = new File(fileOuterObject, innerObjectType.toString());
+                    if (!IS_DIRECTORY.accept(fileOuterObjectInnerType)) {
+                        continue;
+                    }
+                    for (final File fileOuterObjectInnerObject : fileOuterObjectInnerType.listFiles(IS_DIRECTORY)) {
+                        final long innerObjectId;
+                        try {
+                            innerObjectId = Long.parseLong(fileOuterObjectInnerObject.getName());
+                        } catch (NumberFormatException nfe) {
+                            continue;
+                        }
+                        if (!getMetadataFile(innerObjectType, innerObjectId).isFile()) {
+                            continue;
+                        }
+                        listener.contains(outerObjectType, outerObjectId, innerObjectType, innerObjectId);
+                    }
+                }
+            }
+
+        }
     }
 }

@@ -802,7 +802,7 @@ public class Download {
         if (!parsedOptions.isObjectType("image")) {
             toWrite.removeAll(ModelType.IMAGE);
         }
-        if (!toWrite.isEmpty() && parsedOptions.isFileType("ome-xml-parts")) {
+        if (!toWrite.isEmpty() && (parsedOptions.isFileType("ome-xml") || parsedOptions.isFileType("ome-xml-parts"))) {
             /* write model objects split into separate XML files using symbolic links to show cross-references */
             writeXmlObjects(containment, toWrite);
         }
@@ -811,7 +811,7 @@ public class Download {
         closeDownServices();
         GATEWAY.disconnect();
 
-        if (parsedOptions.isFileType("ome-xml-whole")) {
+        if (!toWrite.isEmpty() && (parsedOptions.isFileType("ome-xml") || parsedOptions.isFileType("ome-xml-whole"))) {
             /* assemble model objects from separate XML files into one XML file with Ref elements */
             assembleReferencedXml(toWrite);
         }

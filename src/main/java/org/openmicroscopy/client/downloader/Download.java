@@ -43,6 +43,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -614,8 +615,12 @@ public class Download {
             for (final long imageId : objects.get(ModelType.IMAGE)) {
                 final String exportName = paths.getMetadataFile(ModelType.IMAGE, imageId).getName();
                 final File exportFile = paths.getExportFile(ModelType.IMAGE, imageId, exportName);
+                if (exportFile.exists()) {
+                    continue;
+                }
                 exportFile.getParentFile().mkdirs();
-                try (final OutputStream out = new FileOutputStream(exportFile);
+                final File temporaryFile = new File(exportFile.getParentFile(), "temp-" + UUID.randomUUID());
+                try (final OutputStream out = new FileOutputStream(temporaryFile);
                      final XmlAssembler writer = new XmlAssembler(containment, new Function<Map.Entry<ModelType, Long>, File>() {
                             @Override
                             public File apply(Map.Entry<ModelType, Long> input) {
@@ -639,6 +644,7 @@ public class Download {
                     LOGGER.fatal(ioe, "cannot create OME-XML file");
                     System.exit(3);
                 }
+                temporaryFile.renameTo(exportFile);
             }
         } else if (objects.containsKey(ModelType.ROI)) {
             // TODO

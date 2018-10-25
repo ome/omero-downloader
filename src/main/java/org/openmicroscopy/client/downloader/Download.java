@@ -706,7 +706,14 @@ public class Download {
         DebugTools.enableLogging("ERROR");
 
         /* parse and validate the command-line options and connect to the OMERO server */
-        final OptionParser.Chosen parsedOptions = OptionParser.parse(argv);
+        OptionParser.Chosen parsedOptions = null;
+        try {
+            parsedOptions = OptionParser.parse(argv);
+        } catch (IllegalArgumentException iae) {
+            System.err.println(iae.getLocalizedMessage());
+            LOGGER.fatal(iae, "failed to parse options");
+            System.exit(2);
+        }
         openGateway(parsedOptions);
         setUpServices(parsedOptions.getBaseDirectory());
 

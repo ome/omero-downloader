@@ -40,6 +40,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -347,7 +348,7 @@ public class XmlGenerator {
      * @throws TransformerException if the XML could not be generated
      */
     private static void writeElement(OMEModelObject modelObject, File destination) throws IOException, TransformerException {
-        final File temporaryFile = new File(destination.getParentFile(), "temp");
+        final File temporaryFile = new File(destination.getParentFile(), "temp-" + UUID.randomUUID());
         final Document document = DOCUMENT_BUILDER.newDocument();
         final Element xmlElement = modelObject.asXMLElement(document);
         document.appendChild(xmlElement);

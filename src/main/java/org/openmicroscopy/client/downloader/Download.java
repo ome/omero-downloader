@@ -96,6 +96,40 @@ import org.apache.commons.lang3.StringUtils;
 import org.openmicroscopy.client.downloader.options.OptionParser;
 
 /**
+ * Helper to print a dot after every so-many bumps.
+ * @author m.t.b.carroll@dundee.ac.uk
+ */
+class DotBumper {
+
+    private final int interval;
+    private int count = 0;
+
+    /**
+     * Construct a new dot bumper and flush standard output.
+     * @param interval how many {@link #bump()} are needed to print a dot
+     */
+    DotBumper(int interval) {
+        if (interval <= 0) {
+            throw new IllegalArgumentException("interval must be strictly positive");
+        }
+        this.interval = interval;
+        System.out.flush();
+    }
+
+    /**
+     * Possibly print a dot to standard output.
+     * @see #DotBumper(int)
+     */
+    void bump() {
+        if (++count == interval) {
+            count = 0;
+            System.out.print('.');
+            System.out.flush();
+        }
+    }
+}
+
+/**
  * OMERO client for downloading data in bulk from the server.
  * @author m.t.b.carroll@dundee.ac.uk
  */
@@ -612,10 +646,16 @@ public class Download {
         final Map<Map.Entry<ModelType, ModelType>, SetMultimap<Long, Long>> containment
                 = new ParentChildMap(objects.keySet()).buildFromFS().containment;
         if (objects.containsKey(ModelType.IMAGE)) {
-            for (final long imageId : objects.get(ModelType.IMAGE)) {
+            final Set<Long> imageIds = objects.get(ModelType.IMAGE);
+            final int totalCount = imageIds.size();
+            int currentCount = 1;
+            for (final long imageId : imageIds) {
+                final String countPrefix = "(" + currentCount++ + "/" + totalCount + ") ";
+                System.out.print(countPrefix);
                 final String exportName = paths.getMetadataFile(ModelType.IMAGE, imageId).getName();
                 final File exportFile = paths.getExportFile(ModelType.IMAGE, imageId, exportName);
                 if (exportFile.exists()) {
+                    System.out.println("already assembled metadata for image " + imageId);
                     continue;
                 }
                 exportFile.getParentFile().mkdirs();
@@ -636,15 +676,20 @@ public class Download {
                         roiIds.addAll(children.get(imageId));
                     }
                     /* perform writes */
+                    System.out.print("assembling metadata for image " + imageId + "...");
+                    final DotBumper dots = new DotBumper(1024);
                     writer.writeImage(imageId);
+                    dots.bump();
                     for (final long roiId : roiIds) {
                         writer.writeRoi(roiId);
+                        dots.bump();
                     }
                 } catch (IOException ioe) {
                     LOGGER.fatal(ioe, "cannot create OME-XML file");
                     System.exit(3);
                 }
                 temporaryFile.renameTo(exportFile);
+                System.out.println(" done");
             }
         } else if (objects.containsKey(ModelType.ROI)) {
             // TODO

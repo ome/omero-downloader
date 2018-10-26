@@ -645,15 +645,14 @@ public class Download {
      */
     private static void assembleReferencedXml(final SetMultimap<ModelType, Long> objects) {
         /* map parent-child relationships */
-        final Map<Map.Entry<ModelType, ModelType>, SetMultimap<Long, Long>> containment
-                = new ParentChildMap(objects.keySet()).buildFromFS().containment;
+        final Map<Map.Entry<ModelType, ModelType>, SetMultimap<Long, Long>> containment =
+                new ParentChildMap(objects.keySet()).buildFromFS().containment;
         if (objects.containsKey(ModelType.IMAGE)) {
             final Set<Long> imageIds = objects.get(ModelType.IMAGE);
             final int totalCount = imageIds.size();
             int currentCount = 1;
             for (final long imageId : imageIds) {
-                final String countPrefix = "(" + currentCount++ + "/" + totalCount + ") ";
-                System.out.print(countPrefix);
+                System.out.print("(" + currentCount++ + "/" + totalCount + ") ");
                 final String exportName = paths.getMetadataFile(ModelType.IMAGE, imageId).getName();
                 final File exportFile = paths.getExportFile(ModelType.IMAGE, imageId, exportName);
                 if (exportFile.exists()) {
@@ -663,29 +662,14 @@ public class Download {
                 exportFile.getParentFile().mkdirs();
                 final File temporaryFile = new File(exportFile.getParentFile(), "temp-" + UUID.randomUUID());
                 try (final OutputStream out = new FileOutputStream(temporaryFile);
-                     final XmlAssembler writer = new XmlAssembler(containment, new Function<Map.Entry<ModelType, Long>, File>() {
+                     final XmlAssembler writer = new XmlAssembler(omeXmlService, containment,
+                                new Function<Map.Entry<ModelType, Long>, File>() {
                             @Override
                             public File apply(Map.Entry<ModelType, Long> input) {
                                 return paths.getMetadataFile(input.getKey(), input.getValue());
                             }
                         }, out)) {
-                    /* determine what to write */
-                    SetMultimap<Long, Long> children;
-                    final Set<Long> annotationIds = new HashSet<>();  // TODO
-                    final Set<Long> roiIds = new HashSet<>();
-                    children = containment.get(Maps.immutableEntry(ModelType.IMAGE, ModelType.ROI));
-                    if (children != null) {
-                        roiIds.addAll(children.get(imageId));
-                    }
-                    /* perform writes */
-                    System.out.print("assembling metadata for image " + imageId + "...");
-                    final DotBumper dots = new DotBumper(1024);
                     writer.writeImage(imageId);
-                    dots.bump();
-                    for (final long roiId : roiIds) {
-                        writer.writeRoi(roiId);
-                        dots.bump();
-                    }
                 } catch (IOException ioe) {
                     LOGGER.fatal(ioe, "cannot create OME-XML file");
                     System.exit(3);

@@ -26,8 +26,10 @@ import java.io.OutputStream;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -35,8 +37,11 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.stream.StreamResult;
 
+import loci.common.services.ServiceException;
 import loci.common.xml.XMLTools;
+import loci.formats.services.OMEXMLService;
 
+import ome.xml.meta.OMEXMLMetadata;
 import ome.xml.model.OME;
 import ome.xml.model.OMEModel;
 import ome.xml.model.OMEModelObject;
@@ -111,50 +116,20 @@ public class XmlAssembler implements Closeable {
 
     private static final OMEModel STATELESS_MODEL = new StatelessModel();
 
-    private static DocumentBuilder DOCUMENT_BUILDER = null;
-
     private static final OME OME_OBJECT;
 
-    private static byte[] OME_XML_HEADER;
-    private static byte[] OME_XML_FOOTER;
-
-    private static int HEADER_SKIP;
-    private static int FOOTER_SKIP;
-
-    /**
-     * Set up the document builder and note the XML header and footer to use for OME documents.
-     */
     static {
-        try {
-            DOCUMENT_BUILDER = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-        } catch (ParserConfigurationException pce) {
-            LOGGER.fatal(pce, "cannot build XML documents");
-            System.exit(3);
-        }
-        final Document documentDOM = DOCUMENT_BUILDER.newDocument();
         OME_OBJECT = new ome.xml.model.OME();
         OME_OBJECT.setCreator(OME_XML_CREATOR);
-        final Node omeElement = OME_OBJECT.asXMLElement(documentDOM);
-        final String textContent = XmlAssembler.class.getName();
-        final Node textNode = documentDOM.createTextNode(textContent);
-        documentDOM.appendChild(omeElement);
-        omeElement.appendChild(textNode);
-        final StringWriter documentWriter = new StringWriter();
-        try {
-            XMLTools.writeXML(new StreamResult(documentWriter), documentDOM, true);
-        } catch (TransformerException te) {
-            LOGGER.fatal(te, "cannot write XML documents");
-            System.exit(3);
-        }
-        final String documentText = documentWriter.toString();
-        final int declarationLength = documentText.indexOf('>') + 1;
-        final int footerLength = documentText.length() - documentText.lastIndexOf('<');
-        final int headerLength = documentText.length() - declarationLength - textContent.length() - footerLength;
-        OME_XML_HEADER = documentText.substring(0, declarationLength + headerLength).getBytes(StandardCharsets.UTF_8);
-        OME_XML_FOOTER = documentText.substring(documentText.length() - footerLength).getBytes(StandardCharsets.UTF_8);
-        HEADER_SKIP = headerLength;
-        FOOTER_SKIP = footerLength;
     }
+
+    private DocumentBuilder documentBuilder = null;
+
+    private byte[] omeXmlHeader;
+    private byte[] omeXmlFooter;
+
+    private int omeXmlHeaderSkip;
+    private int omeXmlFooterSkip;
 
     private final Map<Map.Entry<ModelType, ModelType>, SetMultimap<Long, Long>> containment;
     private final Map<Map.Entry<ModelType, Long>, String> lsids = new HashMap<>();
@@ -165,17 +140,74 @@ public class XmlAssembler implements Closeable {
      * Create a new XML assembler for OME metadata export.
      * The writer methods are used to provide content from already-exported XML fragments in between the {@code OME}-element
      * open-and-close provided by this class.
+     * @param omeXmlService the OME-XML service
      * @param containment the parent-child relationships to use in adding {@link Reference} elements
      * @param metadataFiles a locator for files containing XML fragments
      * @param destination where to write the assembled XML
      * @throws IOException if the destination was not writable
      */
-    public XmlAssembler(Map<Map.Entry<ModelType, ModelType>, SetMultimap<Long, Long>> containment,
+    public XmlAssembler(OMEXMLService omeXmlService, Map<Map.Entry<ModelType, ModelType>, SetMultimap<Long, Long>> containment,
             Function<Map.Entry<ModelType, Long>, File> metadataFiles, OutputStream destination) throws IOException {
+        ensureOmeXmlHeaderFooter(omeXmlService);
         this.containment = containment;
         this.xmlFiles = metadataFiles;
         this.out = destination;
-        this.out.write(OME_XML_HEADER);
+        this.out.write(omeXmlHeader);
+    }
+
+    /**
+     * Set up the document builder. Note the XML header and footer to use for OME documents.
+     * Note the size of the headers and footers for {@link #writeModelObject(ome.xml.model.OMEModelObject)} to trim.
+     */
+    private void ensureOmeXmlHeaderFooter(OMEXMLService omeXmlService) {
+        if (documentBuilder != null) {
+            /* already done */
+            return;
+        }
+        /* create document builder */
+        try {
+            documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+        } catch (ParserConfigurationException pce) {
+            LOGGER.fatal(pce, "cannot build XML documents");
+            System.exit(3);
+        }
+
+        /* determine full headers as to be written */
+        OMEXMLMetadata metadata = null;
+        try {
+            metadata = omeXmlService.createOMEXMLMetadata();
+        } catch (ServiceException se) {
+            LOGGER.fatal(se, "cannot create metadata object");
+            System.exit(3);
+        }
+        metadata.createRoot();
+        metadata.setImageID("image", 0);
+        String documentText = metadata.dumpXML();
+        int declarationLength = documentText.indexOf('>') + 1;
+        int footerLength = documentText.length() - documentText.lastIndexOf('<');
+        int headerLength = documentText.indexOf('>', declarationLength) + 1 - declarationLength;
+        omeXmlHeader = documentText.substring(0, declarationLength + headerLength).getBytes(StandardCharsets.UTF_8);
+        omeXmlFooter = documentText.substring(documentText.length() - footerLength).getBytes(StandardCharsets.UTF_8);
+
+        /* determine headers to be skipped by writeModelObject */
+        final Document documentDOM = documentBuilder.newDocument();
+        final Node omeElement = OME_OBJECT.asXMLElement(documentDOM);
+        final Node textNode = documentDOM.createTextNode(XmlAssembler.class.getName());
+        documentDOM.appendChild(omeElement);
+        omeElement.appendChild(textNode);
+        final StringWriter documentWriter = new StringWriter();
+        try {
+            XMLTools.writeXML(new StreamResult(documentWriter), documentDOM, true);
+        } catch (TransformerException te) {
+            LOGGER.fatal(te, "cannot write XML documents");
+            System.exit(3);
+        }
+        documentText = documentWriter.toString();
+        declarationLength = documentText.indexOf('>') + 1;
+        footerLength = documentText.length() - documentText.lastIndexOf('<');
+        headerLength = documentText.indexOf('>', declarationLength) + 1 - declarationLength;
+        omeXmlHeaderSkip = headerLength;
+        omeXmlFooterSkip = footerLength;
     }
 
     /**
@@ -185,12 +217,12 @@ public class XmlAssembler implements Closeable {
      */
     private void writeModelObject(OMEModelObject object) throws IOException {
         /* To omit xmlns attribute actually wraps the object in an OME element that is then stripped. */
-        final Document document = DOCUMENT_BUILDER.newDocument();
+        final Document document = documentBuilder.newDocument();
         final Node omeElement = OME_OBJECT.asXMLElement(document);
         final Node givenElement = object.asXMLElement(document);
         document.appendChild(omeElement);
         omeElement.appendChild(givenElement);
-        final OutputStream truncater = new TruncatingOutputStream(HEADER_SKIP, FOOTER_SKIP, out);
+        final OutputStream truncater = new TruncatingOutputStream(omeXmlHeaderSkip, omeXmlFooterSkip, out);
         try {
             XMLTools.writeXML(truncater, document, false);
         } catch (TransformerException te) {
@@ -201,7 +233,7 @@ public class XmlAssembler implements Closeable {
 
     @Override
     public void close() throws IOException {
-        out.write(OME_XML_FOOTER);
+        out.write(omeXmlFooter);
     }
 
     /**
@@ -233,7 +265,7 @@ public class XmlAssembler implements Closeable {
      * @param imageId an image ID
      * @throws IOException if the image's metadata file could not be read or the {@code Image} element could not be written
      */
-    public void writeImage(long imageId) throws IOException {
+    private void writeImageElement(long imageId) throws IOException {
         /* read image metadata */
         Document document = null;
         try {
@@ -250,15 +282,15 @@ public class XmlAssembler implements Closeable {
             System.exit(3);
         }
         /* note cross-references */
-        SetMultimap<Long, Long> children;
-        children = containment.get(Maps.immutableEntry(ModelType.IMAGE, ModelType.ROI));
-        if (children != null) {
-            for (final long roiId : children.get(imageId)) {
-                final ome.xml.model.ROI roi = new ome.xml.model.ROI();
-                final Reference ref = new ROIRef();
-                roi.setID(getLsid(ModelType.ROI, roiId));
-                image.link(ref, roi);
-            }
+        final SetMultimap<Long, Long> imageAnnotationMap = containment.get(
+                Maps.immutableEntry(ModelType.IMAGE, ModelType.ANNOTATION));  // TODO
+        final SetMultimap<Long, Long> imageRoiMap = containment.get(
+                Maps.immutableEntry(ModelType.IMAGE, ModelType.ROI));
+        for (final long roiId : imageRoiMap.get(imageId)) {
+            final ome.xml.model.ROI roi = new ome.xml.model.ROI();
+            final Reference ref = new ROIRef();
+            roi.setID(getLsid(ModelType.ROI, roiId));
+            image.link(ref, roi);
         }
         /* write Image element */
         writeModelObject(image);
@@ -269,7 +301,7 @@ public class XmlAssembler implements Closeable {
      * @param roiId a ROI ID
      * @throws IOException if the ROI's metadata file could not be read or the {@code ROI} element could not be written
      */
-    public void writeRoi(long roiId) throws IOException {
+    private void writeRoiElement(long roiId) throws IOException {
         /* read ROI metadata */
         Document document = null;
         try {
@@ -285,7 +317,41 @@ public class XmlAssembler implements Closeable {
             LOGGER.fatal(e, "cannot process XML document");
             System.exit(3);
         }
+        /* note cross-references */
+        final SetMultimap<Long, Long> roiAnnotationMap = containment.get(
+                Maps.immutableEntry(ModelType.ROI, ModelType.ANNOTATION));  // TODO
         /* write ROI element */
         writeModelObject(roi);
+    }
+
+    /**
+     * Write the OME-XML document for the given image.
+     * @param imageId an image ID
+     * @throws IOException if the document could not be written
+     */
+    public void writeImage(long imageId) throws IOException {
+        /* determine what to write */
+        final SetMultimap<Long, Long> imageAnnotationMap = containment.get(
+                Maps.immutableEntry(ModelType.IMAGE, ModelType.ANNOTATION));
+        final SetMultimap<Long, Long> imageRoiMap = containment.get(
+                Maps.immutableEntry(ModelType.IMAGE, ModelType.ROI));
+        final SetMultimap<Long, Long> roiAnnotationMap = containment.get(
+                Maps.immutableEntry(ModelType.ROI, ModelType.ANNOTATION));
+        final Set<Long> annotationIds = new HashSet<>();  // TODO
+        final Set<Long> roiIds = new HashSet<>();
+        annotationIds.addAll(imageAnnotationMap.get(imageId));
+        roiIds.addAll(imageRoiMap.get(imageId));
+        for (final long roiId : roiIds) {
+            annotationIds.addAll(roiAnnotationMap.get(roiId));
+        }
+        /* perform writes */
+        System.out.print("assembling metadata for image " + imageId + "...");
+        final DotBumper dots = new DotBumper(1024);
+        writeImageElement(imageId);
+        dots.bump();
+        for (final long roiId : roiIds) {
+            writeRoiElement(roiId);
+            dots.bump();
+        }
     }
 }

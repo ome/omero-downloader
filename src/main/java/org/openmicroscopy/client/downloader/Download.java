@@ -653,6 +653,7 @@ public class Download {
                 return paths.getMetadataFile(input.getKey(), input.getValue());
             }
         };
+        try {
         if (objects.containsKey(ModelType.IMAGE)) {
             final Set<Long> imageIds = objects.get(ModelType.IMAGE);
             final int totalCount = imageIds.size();
@@ -670,9 +671,6 @@ public class Download {
                 try (final OutputStream out = new FileOutputStream(temporaryFile);
                     final XmlAssembler writer = new XmlAssembler(omeXmlService, containment, metadataFiles, out)) {
                     writer.writeImage(imageId);
-                } catch (IOException ioe) {
-                    LOGGER.fatal(ioe, "cannot create OME-XML file");
-                    System.exit(3);
                 }
                 temporaryFile.renameTo(exportFile);
                 System.out.println(" done");
@@ -681,6 +679,10 @@ public class Download {
             // TODO
         } else if (objects.containsKey(ModelType.ANNOTATION)) {
             // TODO
+        }
+        } catch (IOException ioe) {
+            LOGGER.fatal(ioe, "cannot create OME-XML file");
+            System.exit(3);
         }
     }
 

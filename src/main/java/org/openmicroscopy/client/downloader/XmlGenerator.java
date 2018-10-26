@@ -216,10 +216,13 @@ public class XmlGenerator {
                 queried.putAll(parentType, parentIds);
             }
             toQuery = nextToQuery;
-            for (final Map.Entry<ModelType, Collection<Long>> toQueryOneType : toQuery.asMap().entrySet()) {
-                final ModelType toQueryType = toQueryOneType.getKey();
-                final Collection<Long> toQueryIds = toQueryOneType.getValue();
-                toQueryIds.removeAll(queried.get(toQueryType));
+            final SetMultimap<ModelType, Long> toRemove = HashMultimap.create();
+            for (final ModelType toQueryType : toQuery.keySet()) {
+                toRemove.putAll(toQueryType, queried.get(toQueryType));
+            }
+            final Map<ModelType, Collection<Long>> queryMap = toQuery.asMap();
+            for (final Map.Entry<ModelType, Collection<Long>> toRemoveOneType : toRemove.asMap().entrySet()) {
+                queryMap.get(toRemoveOneType.getKey()).removeAll(toRemoveOneType.getValue());
             }
         }
     }

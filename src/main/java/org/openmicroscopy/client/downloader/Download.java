@@ -640,6 +640,20 @@ public class Download {
     }
 
     /**
+     * Construct the {@link File} for the given object's cross-referenced OME-XML export and
+     * ensure that its parent directories exist.
+     * @param objectType the type of a model object
+     * @param objectId the ID of a model object
+     * @return the {@link File} to which to export the object or {@code null} if the file already exists
+     */
+    private static File getReferencedXmlFile(ModelType objectType, Long objectId) {
+        final String exportName = paths.getMetadataFile(objectType, objectId).getName();
+        final File exportFile = paths.getExportFile(objectType, objectId, exportName);
+        exportFile.getParentFile().mkdirs();
+        return exportFile;
+    }
+
+    /**
      * Write the given model objects as XML cross-referenced within an {@code OME} element.
      * @param objects the model objects to write
      */
@@ -660,13 +674,11 @@ public class Download {
                 int currentCount = 1;
                 for (final long imageId : imageIds) {
                     System.out.print("(" + currentCount++ + "/" + totalCount + ") ");
-                    final String exportName = paths.getMetadataFile(ModelType.IMAGE, imageId).getName();
-                    final File exportFile = paths.getExportFile(ModelType.IMAGE, imageId, exportName);
+                    final File exportFile = getReferencedXmlFile(ModelType.IMAGE, imageId);
                     if (exportFile.exists()) {
                         System.out.println("already assembled metadata for image " + imageId);
                         continue;
                     }
-                    exportFile.getParentFile().mkdirs();
                     final File temporaryFile = new File(exportFile.getParentFile(), "temp-" + UUID.randomUUID());
                     try (final OutputStream out = new FileOutputStream(temporaryFile);
                          final XmlAssembler writer = new XmlAssembler(omeXmlService, containment, metadataFiles, out)) {

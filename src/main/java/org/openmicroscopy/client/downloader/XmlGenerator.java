@@ -251,14 +251,16 @@ public class XmlGenerator {
      * @return the LSID for that object
      */
     private String getLsid(IObject object) {
-        String objectClass = object.getClass().getSimpleName();
-        final int lastChar = objectClass.length() - 1;
-        if (objectClass.charAt(lastChar) == 'I') {
-            objectClass = objectClass.substring(0, lastChar);
+        Class<? extends IObject> objectClass = object.getClass();
+        if (objectClass == IObject.class) {
+            throw new IllegalArgumentException("must be of a specific model object type");
+        }
+        while (objectClass.getSuperclass() != IObject.class) {
+            objectClass = objectClass.getSuperclass().asSubclass(IObject.class);
         }
         final long objectId = object.getId().getValue();
         final long updateId = object.getDetails().getUpdateEvent().getId().getValue();
-        return String.format(format, objectClass, objectId, updateId);
+        return String.format(format, objectClass.getSimpleName(), objectId, updateId);
     }
 
     /**

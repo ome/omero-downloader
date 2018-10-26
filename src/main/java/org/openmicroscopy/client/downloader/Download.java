@@ -480,12 +480,18 @@ public class Download {
             try {
                 metadata = omeXmlService.createOMEXMLMetadata();
                 metadata.createRoot();
-                SetMultimap<Long, Long> imageAnnotationMap = containment.get(
-                        Maps.immutableEntry(ModelType.IMAGE, ModelType.ANNOTATION));
-                SetMultimap<Long, Long> roiAnnotationMap = containment.get(
-                        Maps.immutableEntry(ModelType.ROI, ModelType.ANNOTATION));
-                SetMultimap<Long, Long> imageRoiMap = containment.get(
-                        Maps.immutableEntry(ModelType.IMAGE, ModelType.ROI));
+                final SetMultimap<Long, Long> imageAnnotationMap;
+                final SetMultimap<Long, Long> imageRoiMap;
+                final SetMultimap<Long, Long> roiAnnotationMap;
+                if (isOmeTiff) {
+                    imageAnnotationMap = containment.get(Maps.immutableEntry(ModelType.IMAGE, ModelType.ANNOTATION));
+                    imageRoiMap = containment.get(Maps.immutableEntry(ModelType.IMAGE, ModelType.ROI));
+                    roiAnnotationMap = containment.get(Maps.immutableEntry(ModelType.ROI, ModelType.ANNOTATION));
+                } else {
+                    imageAnnotationMap = ImmutableSetMultimap.of();
+                    imageRoiMap = ImmutableSetMultimap.of();
+                    roiAnnotationMap = ImmutableSetMultimap.of();
+                }
                 final Set<Long> annotationIds = new HashSet<>();
                 final Set<Long> roiIds = new HashSet<>();
                 annotationIds.addAll(imageAnnotationMap.get(imageId));

@@ -157,6 +157,16 @@ public class Download {
          */
         ParentChildMap(Iterable<ModelType> wantedTypes) {
             this.wantedTypes = ImmutableSet.copyOf(wantedTypes);
+            for (final ModelType containerType : ModelType.values()) {
+                for (final ModelType containedType : ModelType.values()) {
+                    final Map.Entry<ModelType, ModelType> types = Maps.immutableEntry(containerType, containedType);
+                    if (this.wantedTypes.contains(containerType) && this.wantedTypes.contains(containedType)) {
+                        containment.put(types, HashMultimap.<Long, Long>create());
+                    } else {
+                        containment.put(types, ImmutableSetMultimap.<Long, Long>of());
+                    }
+                }
+            }
         }
 
         /**
@@ -182,12 +192,7 @@ public class Download {
         public void contains(ModelType containerType, long containerId, ModelType containedType, long containedId) {
             if (wantedTypes.contains(containerType) && wantedTypes.contains(containedType)) {
                 final Map.Entry<ModelType, ModelType> types = Maps.immutableEntry(containerType, containedType);
-                SetMultimap<Long, Long> ids = containment.get(types);
-                if (ids == null) {
-                    ids = HashMultimap.create();
-                    containment.put(types, ids);
-                }
-                ids.put(containerId, containedId);
+                containment.get(types).put(containerId, containedId);
             }
         }
 
@@ -481,15 +486,6 @@ public class Download {
                         Maps.immutableEntry(ModelType.ROI, ModelType.ANNOTATION));
                 SetMultimap<Long, Long> imageRoiMap = containment.get(
                         Maps.immutableEntry(ModelType.IMAGE, ModelType.ROI));
-                if (imageAnnotationMap == null) {
-                    imageAnnotationMap = ImmutableSetMultimap.of();
-                }
-                if (roiAnnotationMap == null) {
-                    roiAnnotationMap = ImmutableSetMultimap.of();
-                }
-                if (imageRoiMap == null) {
-                    imageRoiMap = ImmutableSetMultimap.of();
-                }
                 final Set<Long> annotationIds = new HashSet<>();
                 final Set<Long> roiIds = new HashSet<>();
                 annotationIds.addAll(imageAnnotationMap.get(imageId));

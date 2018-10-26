@@ -738,12 +738,17 @@ public class Download {
         }
 
         /* find the images and other objects for those targets */
+        Set<Long> imageIds;
         FoundChildren found = requests.submit("finding target images", finder.build(), FoundChildren.class);
-        Set<Long> imageIds = ImmutableSet.copyOf(found.children.get(ome.model.core.Image.class.getName()));
+        if (found.children.containsKey(ome.model.core.Image.class.getName())) {
+            imageIds = ImmutableSet.copyOf(found.children.get(ome.model.core.Image.class.getName()));
+        } else {
+            imageIds = Collections.emptySet();
+        }
 
         /* process filesets */
         FileMapper fileMapper = null;
-        if (CollectionUtils.isNotEmpty(imageIds)) {
+        if (!imageIds.isEmpty()) {
             fileMapper = new FileMapper(iQuery, paths, imageIds);
             if (parsedOptions.isAllFileset()) {
                 final Set<Long> newImageIds = fileMapper.completeFilesets(imageIds);
@@ -787,7 +792,7 @@ public class Download {
         }
 
         /* write the requested files */
-        if (CollectionUtils.isNotEmpty(imageIds)) {
+        if (!imageIds.isEmpty()) {
             if (parsedOptions.isFileType("binary") || parsedOptions.isFileType("companion")) {
                 /* download the image files from the remote repository */
                 downloadFiles(fileMapper, imageIds, parsedOptions.isFileType("binary"), parsedOptions.isFileType("companion"),

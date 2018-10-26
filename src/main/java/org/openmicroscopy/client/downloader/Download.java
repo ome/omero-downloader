@@ -647,6 +647,12 @@ public class Download {
         /* map parent-child relationships */
         final Map<Map.Entry<ModelType, ModelType>, SetMultimap<Long, Long>> containment =
                 new ParentChildMap(objects.keySet()).buildFromFS().containment;
+        final Function<Map.Entry<ModelType, Long>, File> metadataFiles = new Function<Map.Entry<ModelType, Long>, File>() {
+            @Override
+            public File apply(Map.Entry<ModelType, Long> input) {
+                return paths.getMetadataFile(input.getKey(), input.getValue());
+            }
+        };
         if (objects.containsKey(ModelType.IMAGE)) {
             final Set<Long> imageIds = objects.get(ModelType.IMAGE);
             final int totalCount = imageIds.size();
@@ -662,13 +668,7 @@ public class Download {
                 exportFile.getParentFile().mkdirs();
                 final File temporaryFile = new File(exportFile.getParentFile(), "temp-" + UUID.randomUUID());
                 try (final OutputStream out = new FileOutputStream(temporaryFile);
-                     final XmlAssembler writer = new XmlAssembler(omeXmlService, containment,
-                                new Function<Map.Entry<ModelType, Long>, File>() {
-                            @Override
-                            public File apply(Map.Entry<ModelType, Long> input) {
-                                return paths.getMetadataFile(input.getKey(), input.getValue());
-                            }
-                        }, out)) {
+                    final XmlAssembler writer = new XmlAssembler(omeXmlService, containment, metadataFiles, out)) {
                     writer.writeImage(imageId);
                 } catch (IOException ioe) {
                     LOGGER.fatal(ioe, "cannot create OME-XML file");

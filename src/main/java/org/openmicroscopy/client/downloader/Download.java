@@ -654,32 +654,32 @@ public class Download {
             }
         };
         try {
-        if (objects.containsKey(ModelType.IMAGE)) {
-            final Set<Long> imageIds = objects.get(ModelType.IMAGE);
-            final int totalCount = imageIds.size();
-            int currentCount = 1;
-            for (final long imageId : imageIds) {
-                System.out.print("(" + currentCount++ + "/" + totalCount + ") ");
-                final String exportName = paths.getMetadataFile(ModelType.IMAGE, imageId).getName();
-                final File exportFile = paths.getExportFile(ModelType.IMAGE, imageId, exportName);
-                if (exportFile.exists()) {
-                    System.out.println("already assembled metadata for image " + imageId);
-                    continue;
+            if (objects.containsKey(ModelType.IMAGE)) {
+                final Set<Long> imageIds = objects.get(ModelType.IMAGE);
+                final int totalCount = imageIds.size();
+                int currentCount = 1;
+                for (final long imageId : imageIds) {
+                    System.out.print("(" + currentCount++ + "/" + totalCount + ") ");
+                    final String exportName = paths.getMetadataFile(ModelType.IMAGE, imageId).getName();
+                    final File exportFile = paths.getExportFile(ModelType.IMAGE, imageId, exportName);
+                    if (exportFile.exists()) {
+                        System.out.println("already assembled metadata for image " + imageId);
+                        continue;
+                    }
+                    exportFile.getParentFile().mkdirs();
+                    final File temporaryFile = new File(exportFile.getParentFile(), "temp-" + UUID.randomUUID());
+                    try (final OutputStream out = new FileOutputStream(temporaryFile);
+                         final XmlAssembler writer = new XmlAssembler(omeXmlService, containment, metadataFiles, out)) {
+                        writer.writeImage(imageId);
+                    }
+                    temporaryFile.renameTo(exportFile);
+                    System.out.println(" done");
                 }
-                exportFile.getParentFile().mkdirs();
-                final File temporaryFile = new File(exportFile.getParentFile(), "temp-" + UUID.randomUUID());
-                try (final OutputStream out = new FileOutputStream(temporaryFile);
-                    final XmlAssembler writer = new XmlAssembler(omeXmlService, containment, metadataFiles, out)) {
-                    writer.writeImage(imageId);
-                }
-                temporaryFile.renameTo(exportFile);
-                System.out.println(" done");
+            } else if (objects.containsKey(ModelType.ROI)) {
+                // TODO
+            } else if (objects.containsKey(ModelType.ANNOTATION)) {
+                // TODO
             }
-        } else if (objects.containsKey(ModelType.ROI)) {
-            // TODO
-        } else if (objects.containsKey(ModelType.ANNOTATION)) {
-            // TODO
-        }
         } catch (IOException ioe) {
             LOGGER.fatal(ioe, "cannot create OME-XML file");
             System.exit(3);

@@ -62,7 +62,7 @@ public class TruncatingOutputStream extends FilterOutputStream {
     @Override
     public void write(byte[] buffer, int offset, int length) throws IOException {
         if (stillToSkip > 0) {
-            if (buffer.length > stillToSkip) {
+            if (length > stillToSkip) {
                 final int newOff = offset + stillToSkip;
                 final int newLen = length - stillToSkip;
                 stillToSkip = 0;

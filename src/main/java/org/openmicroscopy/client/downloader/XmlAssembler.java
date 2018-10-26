@@ -42,11 +42,21 @@ import loci.common.xml.XMLTools;
 import loci.formats.services.OMEXMLService;
 
 import ome.xml.meta.OMEXMLMetadata;
+import ome.xml.model.Annotation;
+import ome.xml.model.AnnotationRef;
+import ome.xml.model.BooleanAnnotation;
+import ome.xml.model.CommentAnnotation;
+import ome.xml.model.DoubleAnnotation;
+import ome.xml.model.LongAnnotation;
 import ome.xml.model.OME;
 import ome.xml.model.OMEModel;
 import ome.xml.model.OMEModelObject;
 import ome.xml.model.ROIRef;
 import ome.xml.model.Reference;
+import ome.xml.model.TagAnnotation;
+import ome.xml.model.TermAnnotation;
+import ome.xml.model.TimestampAnnotation;
+import ome.xml.model.XMLAnnotation;
 import ome.xml.model.enums.EnumerationException;
 
 import omero.log.Logger;
@@ -57,6 +67,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
 
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.xml.sax.SAXException;
 
@@ -132,6 +143,7 @@ public class XmlAssembler implements Closeable {
     private int omeXmlFooterSkip;
 
     private final Map<Map.Entry<ModelType, ModelType>, SetMultimap<Long, Long>> containment;
+    private final Map<Long, Class<? extends Annotation>> annotationTypes = new HashMap<>();
     private final Map<Map.Entry<ModelType, Long>, String> lsids = new HashMap<>();
     private final Function<Map.Entry<ModelType, Long>, File> xmlFiles;
     private final OutputStream out;
@@ -261,6 +273,91 @@ public class XmlAssembler implements Closeable {
     }
 
     /**
+     * Construct a concrete annotation of the same type as that from the local metadata file of a given annotation.
+     * @param id an annotation ID with a local metadata file
+     * @param element the annotation's DOM node already parsed from the metadata file, may be {@code null}
+     * @return a new instance of the annotation's class in the OME-XML model
+     * @throws IOException if the metadata file could not be read
+     */
+    private ome.xml.model.Annotation getAnnotationObject(long id, Element element) throws IOException {
+        Class<? extends Annotation> annotationType = annotationTypes.get(id);
+        if (annotationType == null) {
+            if (element == null) {
+                try {
+                    final Document document = XMLTools.parseDOM(xmlFiles.apply(Maps.immutableEntry(ModelType.ANNOTATION, id)));
+                    element = document.getDocumentElement();
+                } catch (ParserConfigurationException | SAXException e) {
+                    LOGGER.fatal(e, "cannot read XML document");
+                    System.exit(3);
+                }
+            }
+            switch (element.getNodeName()) {
+                case "BooleanAnnotation":
+                    annotationType = BooleanAnnotation.class;
+                    break;
+                case "CommentAnnotation":
+                    annotationType = CommentAnnotation.class;
+                    break;
+                case "DoubleAnnotation":
+                    annotationType = DoubleAnnotation.class;
+                    break;
+                case "LongAnnotation":
+                    annotationType = LongAnnotation.class;
+                    break;
+                case "TagAnnotation":
+                    annotationType = TagAnnotation.class;
+                    break;
+                case "TermAnnotation":
+                    annotationType = TermAnnotation.class;
+                    break;
+                case "TimestampAnnotation":
+                    annotationType = TimestampAnnotation.class;
+                    break;
+                case "XMLAnnotation":
+                    annotationType = XMLAnnotation.class;
+                    break;
+                default:
+                    throw new IllegalArgumentException("annotation " + id + " has element " + element);
+            }
+            annotationTypes.put(id, annotationType);
+        }
+        try {
+            return annotationType.newInstance();
+        } catch (ReflectiveOperationException roe) {
+            LOGGER.fatal(roe, "cannot instantiate " + annotationType);
+            System.exit(3);
+            return null;
+
+        }
+    }
+
+    /**
+     * Write the XML element for the given annotation.
+     * @param annotationId an annotation ID
+     * @throws IOException if the annotation's metadata file could not be read or the annotation's element could not be written
+     */
+    private void writeAnnotationElement(long annotationId) throws IOException {
+        /* read annotation metadata */
+        Document document = null;
+        try {
+            document = XMLTools.parseDOM(xmlFiles.apply(Maps.immutableEntry(ModelType.ANNOTATION, annotationId)));
+        } catch (ParserConfigurationException | SAXException e) {
+            LOGGER.fatal(e, "cannot read XML document");
+            System.exit(3);
+        }
+        final Element element = document.getDocumentElement();
+        final OMEModelObject annotation = getAnnotationObject(annotationId, element);
+        try {
+            annotation.update(element, STATELESS_MODEL);
+        } catch (EnumerationException e) {
+            LOGGER.fatal(e, "cannot process XML document");
+            System.exit(3);
+        }
+        /* write annotation element */
+        writeModelObject(annotation);
+    }
+
+    /**
      * Write the XML {@code Image} element for the given image.
      * @param imageId an image ID
      * @throws IOException if the image's metadata file could not be read or the {@code Image} element could not be written
@@ -283,9 +380,15 @@ public class XmlAssembler implements Closeable {
         }
         /* note cross-references */
         final SetMultimap<Long, Long> imageAnnotationMap = containment.get(
-                Maps.immutableEntry(ModelType.IMAGE, ModelType.ANNOTATION));  // TODO
+                Maps.immutableEntry(ModelType.IMAGE, ModelType.ANNOTATION));
         final SetMultimap<Long, Long> imageRoiMap = containment.get(
                 Maps.immutableEntry(ModelType.IMAGE, ModelType.ROI));
+        for (final long annotationId : imageAnnotationMap.get(imageId)) {
+            final ome.xml.model.Annotation annotation = getAnnotationObject(annotationId, null);
+            final Reference ref = new AnnotationRef();
+            annotation.setID(getLsid(ModelType.ANNOTATION, annotationId));
+            image.link(ref, annotation);
+        }
         for (final long roiId : imageRoiMap.get(imageId)) {
             final ome.xml.model.ROI roi = new ome.xml.model.ROI();
             final Reference ref = new ROIRef();
@@ -319,7 +422,13 @@ public class XmlAssembler implements Closeable {
         }
         /* note cross-references */
         final SetMultimap<Long, Long> roiAnnotationMap = containment.get(
-                Maps.immutableEntry(ModelType.ROI, ModelType.ANNOTATION));  // TODO
+                Maps.immutableEntry(ModelType.ROI, ModelType.ANNOTATION));
+        for (final long annotationId : roiAnnotationMap.get(roiId)) {
+            final ome.xml.model.Annotation annotation = getAnnotationObject(annotationId, null);
+            final Reference ref = new AnnotationRef();
+            annotation.setID(getLsid(ModelType.ANNOTATION, annotationId));
+            roi.link(ref, annotation);
+        }
         /* write ROI element */
         writeModelObject(roi);
     }
@@ -337,7 +446,7 @@ public class XmlAssembler implements Closeable {
                 Maps.immutableEntry(ModelType.IMAGE, ModelType.ROI));
         final SetMultimap<Long, Long> roiAnnotationMap = containment.get(
                 Maps.immutableEntry(ModelType.ROI, ModelType.ANNOTATION));
-        final Set<Long> annotationIds = new HashSet<>();  // TODO
+        final Set<Long> annotationIds = new HashSet<>();
         final Set<Long> roiIds = new HashSet<>();
         annotationIds.addAll(imageAnnotationMap.get(imageId));
         roiIds.addAll(imageRoiMap.get(imageId));
@@ -349,6 +458,14 @@ public class XmlAssembler implements Closeable {
         final DotBumper dots = new DotBumper(1024);
         writeImageElement(imageId);
         dots.bump();
+        if (!annotationIds.isEmpty()) {
+            out.write("<StructuredAnnotations>".getBytes());
+            for (final long annotationId : annotationIds) {
+                writeAnnotationElement(annotationId);
+                dots.bump();
+            }
+            out.write("</StructuredAnnotations>".getBytes());
+        }
         for (final long roiId : roiIds) {
             writeRoiElement(roiId);
             dots.bump();

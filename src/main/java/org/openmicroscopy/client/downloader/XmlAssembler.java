@@ -468,6 +468,21 @@ public class XmlAssembler implements Closeable {
     }
 
     /**
+     * Write the OME-XML document for the given annotation.
+     * @param annotationId an annotation ID
+     * @throws IOException if the document could not be written
+     */
+    public void writeAnnotation(long annotationId) throws IOException {
+        /* perform writes */
+        System.out.print("assembling metadata for annotation " + annotationId + "...");
+        final DotBumper dots = new DotBumper(1024);
+        out.write("<StructuredAnnotations>".getBytes());
+        writeAnnotationElement(annotationId);
+        dots.bump();
+        out.write("</StructuredAnnotations>".getBytes());
+    }
+
+    /**
      * Write the OME-XML document for the given image.
      * @param imageId an image ID
      * @throws IOException if the document could not be written
@@ -503,6 +518,32 @@ public class XmlAssembler implements Closeable {
         for (final long roiId : roiIds) {
             writeRoiElement(roiId);
             dots.bump();
+        }
+    }
+
+    /**
+     * Write the OME-XML document for the given ROI.
+     * @param roiId a ROI ID
+     * @throws IOException if the document could not be written
+     */
+    public void writeRoi(long roiId) throws IOException {
+        /* determine what to write */
+        final SetMultimap<Long, Long> roiAnnotationMap = containment.get(
+                Maps.immutableEntry(ModelType.ROI, ModelType.ANNOTATION));
+        final Set<Long> annotationIds = new HashSet<>();
+        annotationIds.addAll(roiAnnotationMap.get(roiId));
+        /* perform writes */
+        System.out.print("assembling metadata for ROI " + roiId + "...");
+        final DotBumper dots = new DotBumper(1024);
+        writeRoiElement(roiId);
+        dots.bump();
+        if (!annotationIds.isEmpty()) {
+            out.write("<StructuredAnnotations>".getBytes());
+            for (final long annotationId : annotationIds) {
+                writeAnnotationElement(annotationId);
+                dots.bump();
+            }
+            out.write("</StructuredAnnotations>".getBytes());
         }
     }
 }

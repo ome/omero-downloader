@@ -654,9 +654,43 @@ public class Download {
                     System.out.println(" done");
                 }
             } else if (objects.containsKey(ModelType.ROI)) {
-                // TODO
+                final Set<Long> roiIds = objects.get(ModelType.ROI);
+                final int totalCount = roiIds.size();
+                int currentCount = 1;
+                for (final long roiId : roiIds) {
+                    System.out.print("(" + currentCount++ + "/" + totalCount + ") ");
+                    final File exportFile = getReferencedXmlFile(ModelType.ROI, roiId);
+                    if (exportFile.exists()) {
+                        System.out.println("already assembled metadata for ROI " + roiId);
+                        continue;
+                    }
+                    final File temporaryFile = new File(exportFile.getParentFile(), "temp-" + UUID.randomUUID());
+                    try (final OutputStream out = new FileOutputStream(temporaryFile);
+                         final XmlAssembler writer = new XmlAssembler(omeXmlService, containment, metadataFiles, out)) {
+                        writer.writeRoi(roiId);
+                    }
+                    temporaryFile.renameTo(exportFile);
+                    System.out.println(" done");
+                }
             } else if (objects.containsKey(ModelType.ANNOTATION)) {
-                // TODO
+                final Set<Long> annotationIds = objects.get(ModelType.ANNOTATION);
+                final int totalCount = annotationIds.size();
+                int currentCount = 1;
+                for (final long annotationId : annotationIds) {
+                    System.out.print("(" + currentCount++ + "/" + totalCount + ") ");
+                    final File exportFile = getReferencedXmlFile(ModelType.ANNOTATION, annotationId);
+                    if (exportFile.exists()) {
+                        System.out.println("already assembled metadata for annotation " + annotationId);
+                        continue;
+                    }
+                    final File temporaryFile = new File(exportFile.getParentFile(), "temp-" + UUID.randomUUID());
+                    try (final OutputStream out = new FileOutputStream(temporaryFile);
+                         final XmlAssembler writer = new XmlAssembler(omeXmlService, containment, metadataFiles, out)) {
+                        writer.writeAnnotation(annotationId);
+                    }
+                    temporaryFile.renameTo(exportFile);
+                    System.out.println(" done");
+                }
             }
         } catch (IOException ioe) {
             LOGGER.fatal(ioe, "cannot create OME-XML file");

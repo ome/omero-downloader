@@ -409,10 +409,16 @@ public class XmlGenerator {
      */
     public void writeRois(List<Long> ids, MetadataStore destination) throws ServerError {
         for (final List<Long> roiIdBatch : Lists.partition(ids, BATCH_SIZE)) {
-            final List<Roi> rois = getRois(roiIdBatch);
-            for (final Roi roi : rois) {
+            final List<Roi> rois = new ArrayList<>(getRois(roiIdBatch));
+            final Iterator<Roi> roiIterator = rois.iterator();
+            while (roiIterator.hasNext()) {
+                final Roi roi = roiIterator.next();
                 /* TODO: Understand how to include Mask objects. */
                 removeMasks(roi);
+                if (roi.sizeOfShapes() == 0) {
+                    /* ROIs must have shapes */
+                    roiIterator.remove();
+                }
             }
             omeXmlService.convertMetadata(new RoiMetadata(lsidGetter, rois), destination);
         }
@@ -533,6 +539,10 @@ public class XmlGenerator {
                 for (final Roi roi : getRois(toWrite.keySet())) {
                     /* TODO: Understand how to include Mask objects. */
                     removeMasks(roi);
+                    if (roi.sizeOfShapes() == 0) {
+                        /* ROIs must have shapes */
+                        continue;
+                    }
                     final OMEXMLMetadata xmlMeta = omeXmlService.createOMEXMLMetadata();
                     xmlMeta.createRoot();
                     omeXmlService.convertMetadata(new RoiMetadata(lsidGetter, Collections.singletonList(roi)), xmlMeta);

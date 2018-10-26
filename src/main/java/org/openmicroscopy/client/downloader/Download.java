@@ -96,40 +96,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.openmicroscopy.client.downloader.options.OptionParser;
 
 /**
- * Helper to print a dot after every so-many bumps.
- * @author m.t.b.carroll@dundee.ac.uk
- */
-class DotBumper {
-
-    private final int interval;
-    private int count = 0;
-
-    /**
-     * Construct a new dot bumper and flush standard output.
-     * @param interval how many {@link #bump()} are needed to print a dot
-     */
-    DotBumper(int interval) {
-        if (interval <= 0) {
-            throw new IllegalArgumentException("interval must be strictly positive");
-        }
-        this.interval = interval;
-        System.out.flush();
-    }
-
-    /**
-     * Possibly print a dot to standard output.
-     * @see #DotBumper(int)
-     */
-    void bump() {
-        if (++count == interval) {
-            count = 0;
-            System.out.print('.');
-            System.out.flush();
-        }
-    }
-}
-
-/**
  * OMERO client for downloading data in bulk from the server.
  * @author m.t.b.carroll@dundee.ac.uk
  */

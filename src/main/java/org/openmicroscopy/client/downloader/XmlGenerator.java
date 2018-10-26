@@ -515,6 +515,10 @@ public class XmlGenerator {
                     omeXmlService.convertMetadata(new ImageMetadata(lsidGetter, Collections.singletonList(image)), metadata);
                     final OME omeElement = (OME) metadata.getRoot();
                     final ome.xml.model.Image imageElement = omeElement.getImage(0);
+                    final ome.xml.model.Pixels pixels = imageElement.getPixels();
+                    if (pixels != null) {
+                        pixels.setMetadataOnly(new ome.xml.model.MetadataOnly());
+                    }
                     writeElement(imageElement, toWrite.get(image.getId().getValue()));
                 }
             }

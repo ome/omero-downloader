@@ -144,6 +144,8 @@ public class XmlGenerator {
                 "SELECT parent.id, child.id FROM ImageAnnotationLink WHERE parent.id IN (:ids)"));
         builder.put(ModelType.INSTRUMENT, Maps.immutableEntry(ModelType.ANNOTATION,
                 "SELECT parent.id, child.id FROM InstrumentAnnotationLink WHERE parent.id IN (:ids)"));
+        builder.put(ModelType.ROI, Maps.immutableEntry(ModelType.ANNOTATION,
+                "SELECT parent.id, child.id FROM RoiAnnotationLink WHERE parent.id IN (:ids)"));
         builder.put(ModelType.ANNOTATION, Maps.immutableEntry(ModelType.ANNOTATION,
                 "SELECT parent.id, child.id FROM AnnotationAnnotationLink WHERE parent.id IN (:ids)"));
         CONTAINER_QUERIES = builder.build();

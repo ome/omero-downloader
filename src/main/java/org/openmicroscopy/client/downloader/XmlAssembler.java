@@ -215,7 +215,7 @@ public class XmlAssembler implements Closeable {
             documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
         } catch (ParserConfigurationException pce) {
             LOGGER.fatal(pce, "cannot build XML documents");
-            System.exit(3);
+            Download.abortOnFatalError(3);
         }
 
         /* determine full headers as to be written */
@@ -224,7 +224,7 @@ public class XmlAssembler implements Closeable {
             metadata = omeXmlService.createOMEXMLMetadata();
         } catch (ServiceException se) {
             LOGGER.fatal(se, "cannot create metadata object");
-            System.exit(3);
+            Download.abortOnFatalError(3);
         }
         metadata.createRoot();
         metadata.setImageID("image", 0);
@@ -246,7 +246,7 @@ public class XmlAssembler implements Closeable {
             XMLTools.writeXML(new StreamResult(documentWriter), documentDOM, true);
         } catch (TransformerException te) {
             LOGGER.fatal(te, "cannot write XML documents");
-            System.exit(3);
+            Download.abortOnFatalError(3);
         }
         documentText = documentWriter.toString();
         declarationLength = documentText.indexOf('>') + 1;
@@ -273,7 +273,7 @@ public class XmlAssembler implements Closeable {
             XMLTools.writeXML(truncater, document, false);
         } catch (TransformerException te) {
             LOGGER.fatal(te, "cannot write XML fragment");
-            System.exit(3);
+            Download.abortOnFatalError(3);
         }
     }
 
@@ -298,7 +298,7 @@ public class XmlAssembler implements Closeable {
                 document = XMLTools.parseDOM(xmlFiles.apply(Maps.immutableEntry(objectType, objectId)));
             } catch (ParserConfigurationException | SAXException e) {
                 LOGGER.fatal(e, "cannot read XML document");
-                System.exit(3);
+                Download.abortOnFatalError(3);
             }
             lsid = document.getDocumentElement().getAttribute("ID");
             lsids.put(object, lsid);
@@ -322,7 +322,7 @@ public class XmlAssembler implements Closeable {
                     element = document.getDocumentElement();
                 } catch (ParserConfigurationException | SAXException e) {
                     LOGGER.fatal(e, "cannot read XML document");
-                    System.exit(3);
+                    Download.abortOnFatalError(3);
                 }
             }
             switch (element.getNodeName()) {
@@ -359,7 +359,7 @@ public class XmlAssembler implements Closeable {
             return annotationType.newInstance();
         } catch (ReflectiveOperationException roe) {
             LOGGER.fatal(roe, "cannot instantiate " + annotationType);
-            System.exit(3);
+            Download.abortOnFatalError(3);
             return null;
 
         }
@@ -377,7 +377,7 @@ public class XmlAssembler implements Closeable {
             document = XMLTools.parseDOM(xmlFiles.apply(Maps.immutableEntry(ModelType.ANNOTATION, annotationId)));
         } catch (ParserConfigurationException | SAXException e) {
             LOGGER.fatal(e, "cannot read XML document");
-            System.exit(3);
+            Download.abortOnFatalError(3);
         }
         final Element element = document.getDocumentElement();
         final OMEModelObject annotation = getAnnotationObject(annotationId, element);
@@ -385,7 +385,7 @@ public class XmlAssembler implements Closeable {
             annotation.update(element, STATELESS_MODEL);
         } catch (EnumerationException e) {
             LOGGER.fatal(e, "cannot process XML document");
-            System.exit(3);
+            Download.abortOnFatalError(3);
         }
         /* write annotation element */
         writeModelObject(annotation);
@@ -403,14 +403,14 @@ public class XmlAssembler implements Closeable {
             document = XMLTools.parseDOM(xmlFiles.apply(Maps.immutableEntry(ModelType.IMAGE, imageId)));
         } catch (ParserConfigurationException | SAXException e) {
             LOGGER.fatal(e, "cannot read XML document");
-            System.exit(3);
+            Download.abortOnFatalError(3);
         }
         final OMEModelObject image = new ome.xml.model.Image();
         try {
             image.update(document.getDocumentElement(), STATELESS_MODEL);
         } catch (EnumerationException e) {
             LOGGER.fatal(e, "cannot process XML document");
-            System.exit(3);
+            Download.abortOnFatalError(3);
         }
         /* note cross-references */
         final SetMultimap<Long, Long> imageAnnotationMap = containment.get(
@@ -445,14 +445,14 @@ public class XmlAssembler implements Closeable {
             document = XMLTools.parseDOM(xmlFiles.apply(Maps.immutableEntry(ModelType.ROI, roiId)));
         } catch (ParserConfigurationException | SAXException e) {
             LOGGER.fatal(e, "cannot read XML document");
-            System.exit(3);
+            Download.abortOnFatalError(3);
         }
         final OMEModelObject roi = new ome.xml.model.ROI();
         try {
             roi.update(document.getDocumentElement(), STATELESS_MODEL);
         } catch (EnumerationException e) {
             LOGGER.fatal(e, "cannot process XML document");
-            System.exit(3);
+            Download.abortOnFatalError(3);
         }
         /* note cross-references */
         final SetMultimap<Long, Long> roiAnnotationMap = containment.get(

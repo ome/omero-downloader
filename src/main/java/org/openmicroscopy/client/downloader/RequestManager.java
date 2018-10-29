@@ -80,7 +80,7 @@ public class RequestManager {
             }
         } catch (Throwable t) {
             System.out.println(" failed!  " + t);
-            System.exit(3);
+            Download.abortOnFatalError(3);
         }
         final Response response = callback.getResponse();
         if (!responseClass.isAssignableFrom(ERR.class) && response instanceof ERR) {
@@ -92,7 +92,7 @@ public class RequestManager {
                 } catch (IOException io) {
                     // impossible
                 }
-                System.exit(3);
+                Download.abortOnFatalError(3);
             }
         }
         try {
@@ -105,7 +105,7 @@ public class RequestManager {
             } else {
                 System.out.println(" failed!  " + response);
             }
-            System.exit(3);
+            Download.abortOnFatalError(3);
             return null;
         }
     }

@@ -204,7 +204,7 @@ public class Download {
         if (key == null) {
             if (user == null || pass == null) {
                 System.err.println("must offer username and password or session key");
-                System.exit(2);
+                abortOnFatalError(2);
             }
         } else {
             if (user != null || pass != null) {
@@ -220,7 +220,7 @@ public class Download {
             sessionId = GATEWAY.getSessionId(GATEWAY.getLoggedInUser());
         } catch (DSOutOfServiceException oose) {
             LOGGER.fatal(oose, "cannot log in to server");
-            System.exit(3);
+            abortOnFatalError(3);
         }
         ctx = new SecurityContext(-1);
     }
@@ -235,7 +235,7 @@ public class Download {
             omeXmlService = new ServiceFactory().getInstance(OMEXMLService.class);
         } catch (DependencyException de) {
             LOGGER.fatal(de, "cannot access OME-XML service");
-            System.exit(3);
+            abortOnFatalError(3);
         }
 
         SharedResourcesPrx sharedResources = null;
@@ -247,7 +247,7 @@ public class Download {
             sharedResources = GATEWAY.getSharedResources(ctx);
         } catch (DSOutOfServiceException oose) {
             LOGGER.fatal(oose, "cannot access OMERO services");
-            System.exit(3);
+            abortOnFatalError(3);
         }
 
         final Map<String, Long> repositoryIds = getRepositoryIds();
@@ -255,11 +255,11 @@ public class Download {
             paths = baseDirectory == null ? new LocalPaths(repositoryIds) : new LocalPaths(repositoryIds, baseDirectory);
         } catch (IOException ioe) {
             LOGGER.fatal(ioe, "cannot access base download directory");
-            System.exit(3);
+            abortOnFatalError(3);
         }
         if (!paths.isBaseDirectory()) {
             LOGGER.fatal(null, "base download directory must already exist");
-            System.exit(3);
+            abortOnFatalError(3);
         }
 
         try {
@@ -267,7 +267,7 @@ public class Download {
             xmlGenerator = new XmlGenerator(omeXmlService, iConfig, iQuery);
         } catch (ServerError se) {
             LOGGER.fatal(se, "failed to use services");
-            System.exit(3);
+            abortOnFatalError(3);
         }
 
         links = new LinkMakerPaths(paths);
@@ -283,8 +283,33 @@ public class Download {
             remotePixels.close();
         } catch (ServerError se) {
             LOGGER.fatal(se, "failed to close OMERO services");
-            System.exit(3);
+            abortOnFatalError(3);
         }
+    }
+
+    /**
+     * Close down services and terminate this process.
+     * @param exitCode the status code with which to exit
+     */
+    public static void abortOnFatalError(int exitCode) {
+        if (GATEWAY.isConnected()) {
+            if (remoteFiles != null) {
+                try {
+                    remoteFiles.close();
+                } catch (ServerError se) {
+                    LOGGER.warn(se, "failed to close remote file store");
+                }
+            }
+            if (remotePixels != null) {
+                try {
+                    remotePixels.close();
+                } catch (ServerError se) {
+                    LOGGER.warn(se, "failed to close remote pixels store");
+                }
+            }
+            GATEWAY.disconnect();
+        }
+        System.exit(exitCode);
     }
 
     /**
@@ -302,7 +327,7 @@ public class Download {
             }
         } catch (ServerError se) {
             LOGGER.fatal(se, "cannot use query service");
-            System.exit(3);
+            abortOnFatalError(3);
         }
         final ImmutableMap.Builder<String, Long> repositoryIds = ImmutableMap.builder();
         for (final List<RType> result : results) {
@@ -424,7 +449,7 @@ public class Download {
                 }
             } catch (IOException ioe) {
                 LOGGER.fatal(ioe, "cannot create repository links");
-                System.exit(3);
+                abortOnFatalError(3);
             }
             currentImageCount++;
         }
@@ -489,10 +514,10 @@ public class Download {
                 metadata.setPixelsBigEndian(true, 0);
             } catch (ServerError se) {
                 LOGGER.fatal(se, "failed to fetch images from server");
-                System.exit(3);
+                abortOnFatalError(3);
             } catch (ServiceException se) {
                 LOGGER.fatal(se, "failed to create OME-XML metadata");
-                System.exit(3);
+                abortOnFatalError(3);
             }
 
             /* do the download and assembly */
@@ -606,7 +631,7 @@ public class Download {
             }
         } catch (IOException ioe) {
             LOGGER.fatal(ioe, "cannot create repository links");
-            System.exit(3);
+            abortOnFatalError(3);
         }
     }
 
@@ -699,7 +724,7 @@ public class Download {
             }
         } catch (IOException ioe) {
             LOGGER.fatal(ioe, "cannot create OME-XML file");
-            System.exit(3);
+            abortOnFatalError(3);
         }
     }
 
@@ -717,8 +742,10 @@ public class Download {
         } catch (IllegalArgumentException iae) {
             System.err.println(iae.getLocalizedMessage());
             LOGGER.fatal(iae, "failed to parse options");
-            System.exit(2);
+            abortOnFatalError(2);
         }
+
+        try {
         openGateway(parsedOptions);
         setUpServices(parsedOptions.getBaseDirectory());
 
@@ -730,7 +757,7 @@ public class Download {
         final List<String> targetArgs = parsedOptions.getArguments();
         if (targetArgs.isEmpty()) {
             LOGGER.fatal(null, "no download targets specified");
-            System.exit(2);
+            abortOnFatalError(2);
         }
         for (final String target : targetArgs) {
             final Matcher matcher = TARGET_PATTERN.matcher(target);
@@ -742,7 +769,7 @@ public class Download {
                 }
             } else {
                 System.err.println("cannot parse Target:ids argument: " + target);
-                System.exit(2);
+                abortOnFatalError(2);
             }
         }
 
@@ -780,14 +807,14 @@ public class Download {
                 modelObjectClass = Class.forName(blitzName).asSubclass(IObject.class);
             } catch (ClassNotFoundException cnfe) {
                 LOGGER.fatal(cnfe, "failed to process model object class: " + typeName);
-                System.exit(3);
+                abortOnFatalError(3);
             }
             try {
                 final ModelType modelType = ModelType.getEnumValueFor(modelObjectClass);
                 toWrite.putAll(modelType, ids);
             } catch (IllegalArgumentException iae) {
                 LOGGER.fatal(iae, "failed to process model object class: " + modelObjectClass);
-                System.exit(3);
+                abortOnFatalError(3);
             }
         }
 
@@ -797,7 +824,7 @@ public class Download {
             containment = new ParentChildMap(toWrite.keySet()).buildFromDB(toWrite).containment;
         } catch (ServerError se) {
             LOGGER.fatal(se, "cannot use query service");
-            System.exit(3);
+            abortOnFatalError(3);
         }
 
         /* write the requested files */
@@ -831,6 +858,10 @@ public class Download {
         if (!toWrite.isEmpty() && (parsedOptions.isFileType("ome-xml") || parsedOptions.isFileType("ome-xml-whole"))) {
             /* assemble model objects from separate XML files into one XML file with Ref elements */
             assembleReferencedXml(toWrite);
+        }
+        } catch (Throwable t) {
+            LOGGER.fatal(t, "caught unexpected exception: " + t);
+            abortOnFatalError(4);
         }
     }
 }

@@ -104,7 +104,7 @@ public class XmlGenerator {
             DOCUMENT_BUILDER = DocumentBuilderFactory.newInstance().newDocumentBuilder();
         } catch (ParserConfigurationException pce) {
             LOGGER.fatal(pce, "cannot build XML documents");
-            System.exit(3);
+            Download.abortOnFatalError(3);
         }
     }
 

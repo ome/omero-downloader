@@ -202,7 +202,7 @@ public class FileMapper {
             }
         } catch (ServerError se) {
             LOGGER.fatal(se, "cannot use query service");
-            System.exit(3);
+            Download.abortOnFatalError(3);
         }
         FILESET:
         for (final Collection<Long> fileIds : filesOfFilesets.asMap().values()) {
@@ -275,7 +275,7 @@ public class FileMapper {
                 }
             } catch (ServerError se) {
                 LOGGER.fatal(se, "cannot use query service");
-                System.exit(3);
+                Download.abortOnFatalError(3);
             }
         }
         return newImageIds;

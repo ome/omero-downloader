@@ -83,7 +83,7 @@ public class FileManager {
             file = (OriginalFile) iQuery.get("OriginalFile", fileId);
         } catch (ServerError se) {
             LOGGER.fatal(se, "cannot use query service");
-            System.exit(3);
+            Download.abortOnFatalError(3);
         }
         /* repository of file is not mapped in OMERO model */
         RawFileStorePrx repoRFS = null;
@@ -105,7 +105,7 @@ public class FileManager {
                 repoId = 0L;
             } catch (ServerError se) {
                 LOGGER.fatal(se, "failed to obtain handle to file " + fileId);
-                System.exit(3);
+                Download.abortOnFatalError(3);
             }
         }
         /* download the file */
@@ -145,14 +145,14 @@ public class FileManager {
             System.out.println(" failed");
         } catch (IOException ioe) {
             LOGGER.fatal(ioe, "failed to write file " + destination);
-            System.exit(3);
+            Download.abortOnFatalError(3);
         } finally {
             if (repoRFS != fallbackRFS) {
                 try {
                     repoRFS.close();
                 } catch (ServerError se) {
                     LOGGER.fatal(se, "failed to close remote file store");
-                    System.exit(3);
+                    Download.abortOnFatalError(3);
                 }
             }
         }

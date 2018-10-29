@@ -19,11 +19,11 @@
 
 package org.openmicroscopy.client.downloader.options;
 
-import com.google.common.base.Joiner;
-
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+
+import com.google.common.base.Joiner;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -31,6 +31,8 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+
+import org.openmicroscopy.client.downloader.Download;
 
 /**
  * Parse the command-line options for the downloader.
@@ -191,7 +193,7 @@ public class OptionParser {
         }
         if (exitCode != null) {
             formatter.printHelp("download Target:ID", options);
-            System.exit(exitCode);
+            Download.abortOnFatalError(exitCode);
         }
         final String fileTypeNames = chosen.chosenOptions.getOptionValue('f');
         final String objectTypeNames = chosen.chosenOptions.getOptionValue('x');

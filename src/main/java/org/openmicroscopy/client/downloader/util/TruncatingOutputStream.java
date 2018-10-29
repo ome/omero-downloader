@@ -43,6 +43,9 @@ public class TruncatingOutputStream extends FilterOutputStream {
      */
     public TruncatingOutputStream(int initialSkip, int finalSkip, OutputStream out) {
         super(out);
+        if (initialSkip < 0 || finalSkip < 0) {
+            throw new IllegalArgumentException("counts of bytes to skip may not be negative");
+        }
         this.stillToSkip = initialSkip;
         this.finalSkip = finalSkip;
         this.backlog = new byte[finalSkip];
@@ -61,6 +64,11 @@ public class TruncatingOutputStream extends FilterOutputStream {
 
     @Override
     public void write(byte[] buffer, int offset, int length) throws IOException {
+        if (offset < 0) {
+            throw new IllegalArgumentException("requested write may not extend before start of buffer");
+        } else if (offset + length > buffer.length) {
+            throw new IllegalArgumentException("requested write may not extend beyond end of buffer");
+        }
         if (stillToSkip > 0) {
             if (length > stillToSkip) {
                 final int newOff = offset + stillToSkip;

@@ -73,6 +73,7 @@ import omero.gateway.Gateway;
 import omero.gateway.LoginCredentials;
 import omero.gateway.SecurityContext;
 import omero.gateway.exception.DSOutOfServiceException;
+import omero.gateway.model.ExperimenterData;
 import omero.gateway.util.Requests;
 import omero.grid.SharedResourcesPrx;
 import omero.log.Logger;
@@ -214,15 +215,15 @@ public class Download {
         }
 
         final LoginCredentials credentials = new LoginCredentials(user, pass, host, portNumber);
-        String sessionId = null;
+        ExperimenterData userData = null;
         try {
             GATEWAY.connect(credentials);
-            sessionId = GATEWAY.getSessionId(GATEWAY.getLoggedInUser());
+            userData = GATEWAY.getLoggedInUser();
         } catch (DSOutOfServiceException oose) {
             LOGGER.fatal(oose, "cannot log in to server");
             abortOnFatalError(3);
         }
-        ctx = new SecurityContext(-1);
+        ctx = new SecurityContext(userData.getDefaultGroup().getGroupId());
     }
 
     /**

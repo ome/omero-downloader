@@ -333,7 +333,12 @@ public class Download {
         final Iterator<Class<? extends IObject>> modelClassIterator = modelClasses.iterator();
         while (modelClassIterator.hasNext()) {
             final Class<? extends IObject> modelClass = modelClassIterator.next();
-            if (!parsedOptions.isObjectType(modelClass.getSimpleName().toLowerCase())) {
+            try {
+                if (!parsedOptions.isObjectType(modelClass.getSimpleName().toLowerCase())) {
+                    modelClassIterator.remove();
+                }
+            } catch (NullPointerException npe) {
+                /* TODO: Catching NPE is required only if any top-level model classes are not offered for OME-XML export. */
                 modelClassIterator.remove();
             }
         }

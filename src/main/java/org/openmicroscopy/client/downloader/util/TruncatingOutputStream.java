@@ -52,8 +52,8 @@ public class TruncatingOutputStream extends FilterOutputStream {
     }
 
     @Override
-    public void write(int buffer) throws IOException {
-        singletonByte[0] = (byte) buffer;
+    public void write(int character) throws IOException {
+        singletonByte[0] = (byte) character;
         write(singletonByte, 0, 1);
     }
 

@@ -23,6 +23,7 @@ import java.util.List;
 
 import ome.formats.model.UnitsFactory;
 import ome.units.quantity.Length;
+import ome.xml.model.AffineTransform;
 import ome.xml.model.enums.EnumerationException;
 import ome.xml.model.enums.FillRule;
 import ome.xml.model.enums.FontFamily;
@@ -60,6 +61,22 @@ public class RoiMetadata extends MetadataBase {
     public RoiMetadata(Function<IObject, String> lsids, List<Roi> rois) {
         super(lsids);
         this.roiList = rois;
+    }
+
+    private static AffineTransform toTransform(omero.model.AffineTransform omeroTransform) {
+        if (omeroTransform == null ||
+                omeroTransform.getA00() == null || omeroTransform.getA01() == null || omeroTransform.getA02() == null ||
+                omeroTransform.getA10() == null || omeroTransform.getA11() == null || omeroTransform.getA12() == null) {
+            return null;
+        }
+        final AffineTransform schemaTransform = new AffineTransform();
+        schemaTransform.setA00(omeroTransform.getA00().getValue());
+        schemaTransform.setA01(omeroTransform.getA01().getValue());
+        schemaTransform.setA02(omeroTransform.getA02().getValue());
+        schemaTransform.setA10(omeroTransform.getA10().getValue());
+        schemaTransform.setA11(omeroTransform.getA11().getValue());
+        schemaTransform.setA12(omeroTransform.getA12().getValue());
+        return schemaTransform;
     }
 
     private <X extends Shape> X getShape(int ROIIndex, int shapeIndex, Class<X> expectedSubclass) {
@@ -170,7 +187,8 @@ public class RoiMetadata extends MetadataBase {
         return shape.sizeOfAnnotationLinks();
     }
 
-    private <X extends Shape> String getShapeAnnotationRef(int ROIIndex, int shapeIndex, int annotationRefIndex, Class<X> expectedSubclass) {
+    private <X extends Shape> String getShapeAnnotationRef(int ROIIndex, int shapeIndex, int annotationRefIndex,
+            Class<X> expectedSubclass) {
         if (annotationRefIndex < 0) {
             return null;
         }
@@ -328,6 +346,14 @@ public class RoiMetadata extends MetadataBase {
         return toNonNegativeInteger(shape.getTheZ());
     }
 
+    private <X extends Shape> AffineTransform getShapeTransform(int ROIIndex, int shapeIndex, Class<X> expectedSubclass) {
+        final X shape = getShape(ROIIndex, shapeIndex, expectedSubclass);
+        if (shape == null) {
+            return null;
+        }
+        return toTransform(shape.getTransform());
+    }
+
     @Override
     public String getEllipseAnnotationRef(int ROIIndex, int shapeIndex, int annotationRefIndex) {
         return getShapeAnnotationRef(ROIIndex, shapeIndex, annotationRefIndex, Ellipse.class);
@@ -396,6 +422,11 @@ public class RoiMetadata extends MetadataBase {
     @Override
     public NonNegativeInteger getEllipseTheZ(int ROIIndex, int shapeIndex) {
         return getShapeTheZ(ROIIndex, shapeIndex, Ellipse.class);
+    }
+
+    @Override
+    public AffineTransform getEllipseTransform(int ROIIndex, int shapeIndex) {
+        return getShapeTransform(ROIIndex, shapeIndex, Ellipse.class);
     }
 
     @Override
@@ -514,6 +545,11 @@ public class RoiMetadata extends MetadataBase {
     }
 
     @Override
+    public AffineTransform getLabelTransform(int ROIIndex, int shapeIndex) {
+        return getShapeTransform(ROIIndex, shapeIndex, Label.class);
+    }
+
+    @Override
     public String getLabelText(int ROIIndex, int shapeIndex) {
         final Label label = getShape(ROIIndex, shapeIndex, Label.class);
         if (label == null) {
@@ -611,6 +647,11 @@ public class RoiMetadata extends MetadataBase {
     }
 
     @Override
+    public AffineTransform getLineTransform(int ROIIndex, int shapeIndex) {
+        return getShapeTransform(ROIIndex, shapeIndex, Line.class);
+    }
+
+    @Override
     public Marker getLineMarkerStart(int ROIIndex, int shapeIndex) {
         final Line line = getShape(ROIIndex, shapeIndex, Line.class);
         if (line == null) {
@@ -620,7 +661,11 @@ public class RoiMetadata extends MetadataBase {
         if (markerStart == null) {
             return null;
         }
-        return Marker.valueOf(markerStart.getValue());
+        try {
+            return Marker.fromString(markerStart.getValue());
+        } catch (EnumerationException ex) {
+            return null;
+        }
     }
 
     @Override
@@ -633,7 +678,11 @@ public class RoiMetadata extends MetadataBase {
         if (markerEnd == null) {
             return null;
         }
-        return Marker.valueOf(markerEnd.getValue());
+        try {
+            return Marker.fromString(markerEnd.getValue());
+        } catch (EnumerationException ex) {
+            return null;
+        }
     }
 
     @Override
@@ -752,6 +801,11 @@ public class RoiMetadata extends MetadataBase {
     }
 
     @Override
+    public AffineTransform getPointTransform(int ROIIndex, int shapeIndex) {
+        return getShapeTransform(ROIIndex, shapeIndex, Point.class);
+    }
+
+    @Override
     public String getPointText(int ROIIndex, int shapeIndex) {
         final Point point = getShape(ROIIndex, shapeIndex, Point.class);
         if (point == null) {
@@ -849,6 +903,11 @@ public class RoiMetadata extends MetadataBase {
     }
 
     @Override
+    public AffineTransform getPolygonTransform(int ROIIndex, int shapeIndex) {
+        return getShapeTransform(ROIIndex, shapeIndex, Polygon.class);
+    }
+
+    @Override
     public String getPolygonPoints(int ROIIndex, int shapeIndex) {
         final Polygon polygon = getShape(ROIIndex, shapeIndex, Polygon.class);
         if (polygon == null) {
@@ -937,6 +996,11 @@ public class RoiMetadata extends MetadataBase {
     }
 
     @Override
+    public AffineTransform getPolylineTransform(int ROIIndex, int shapeIndex) {
+        return getShapeTransform(ROIIndex, shapeIndex, Polyline.class);
+    }
+
+    @Override
     public Marker getPolylineMarkerStart(int ROIIndex, int shapeIndex) {
         final Polyline polyline = getShape(ROIIndex, shapeIndex, Polyline.class);
         if (polyline == null) {
@@ -946,7 +1010,11 @@ public class RoiMetadata extends MetadataBase {
         if (markerStart == null) {
             return null;
         }
-        return Marker.valueOf(markerStart.getValue());
+        try {
+            return Marker.fromString(markerStart.getValue());
+        } catch (EnumerationException ex) {
+            return null;
+        }
     }
 
     @Override
@@ -959,7 +1027,11 @@ public class RoiMetadata extends MetadataBase {
         if (markerEnd == null) {
             return null;
         }
-        return Marker.valueOf(markerEnd.getValue());
+        try {
+            return Marker.fromString(markerEnd.getValue());
+        } catch (EnumerationException ex) {
+            return null;
+        }
     }
 
     @Override
@@ -1048,6 +1120,11 @@ public class RoiMetadata extends MetadataBase {
     @Override
     public NonNegativeInteger getRectangleTheZ(int ROIIndex, int shapeIndex) {
         return getShapeTheZ(ROIIndex, shapeIndex, Rectangle.class);
+    }
+
+    @Override
+    public AffineTransform getRectangleTransform(int ROIIndex, int shapeIndex) {
+        return getShapeTransform(ROIIndex, shapeIndex, Rectangle.class);
     }
 
     @Override

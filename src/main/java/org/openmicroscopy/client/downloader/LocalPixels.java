@@ -65,7 +65,7 @@ public class LocalPixels {
         this.tileFile = tileFile;
 
         this.rps = pixelsStore;
-        this.rps.setPixelsId(pixelsId, false);
+        this.rps.setPixelsId(pixelsId, false, Download.ALL_GROUPS_CONTEXT);
 
         final int[] tileSizeArray = rps.getTileSize();
         this.tileSize = new Dimension(tileSizeArray[0], tileSizeArray[1]);

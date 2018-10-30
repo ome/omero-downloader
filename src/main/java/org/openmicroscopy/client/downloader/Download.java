@@ -77,6 +77,8 @@ import omero.gateway.SecurityContext;
 import omero.gateway.exception.DSOutOfServiceException;
 import omero.gateway.model.ExperimenterData;
 import omero.gateway.util.Requests;
+import omero.grid.RepositoryMap;
+import omero.grid.RepositoryPrx;
 import omero.grid.SharedResourcesPrx;
 import omero.log.Logger;
 import omero.log.SimpleLogger;
@@ -87,6 +89,7 @@ import omero.model.Folder;
 import omero.model.IObject;
 import omero.model.Image;
 import omero.model.Instrument;
+import omero.model.OriginalFile;
 import omero.model.Plate;
 import omero.model.Project;
 import omero.model.Roi;
@@ -268,7 +271,7 @@ public class Download {
         }
 
         try {
-            files = new FileManager(sharedResources.repositories(), iQuery);
+            files = new FileManager();
             xmlGenerator = new XmlGenerator(omeXmlService, iConfig, iQuery);
         } catch (ServerError se) {
             LOGGER.fatal(se, "failed to use services");
@@ -302,7 +305,7 @@ public class Download {
                 try {
                     remoteFiles.close();
                 } catch (ServerError se) {
-                    LOGGER.warn(se, "failed to close remote file store");
+                    LOGGER.warn(se, "failed to close raw file store");
                 }
             }
             if (remotePixels != null) {
@@ -376,6 +379,67 @@ public class Download {
     }
 
     /**
+     * Get a proxy for reading the given file's content.
+     * @param fileId the ID of the original file
+     * @return a proxy for the remote file
+     */
+    private static RawFileStorePrx getStoreForFile(long fileId) {
+        /* find the group and repository UUID for the remote file */
+        List<List<RType>> results = null;
+        try {
+            results = iQuery.projection("SELECT details.group.id, repo FROM OriginalFile WHERE id = :id",
+                    new ParametersI().addId(fileId), ALL_GROUPS_CONTEXT);
+        } catch (ServerError se) {
+            LOGGER.fatal(se, "cannot use query service");
+            abortOnFatalError(3);
+        }
+        if (CollectionUtils.isEmpty(results) || CollectionUtils.isEmpty(results.get(0))) {
+            LOGGER.fatal(null, "cannot query metadata of file " + fileId);
+            abortOnFatalError(3);
+        }
+        final List<RType> result = results.get(0);
+        final RLong fileGroupId = (RLong) result.get(0);
+        final RString fileRepoUuid = (RString) result.get(1);
+        /* get a proxy for the file from the appropriate repository proxy in the appropriate group context */
+        final SecurityContext context = new SecurityContext(fileGroupId.getValue());
+        try {
+            if (fileRepoUuid == null) {
+                RawFileStorePrx remoteFiles = null;
+                try {
+                    remoteFiles = GATEWAY.getRawFileService(context);
+                } catch (DSOutOfServiceException dsose) {
+                    LOGGER.fatal(dsose, "cannot access repository for file " + fileId);
+                    abortOnFatalError(3);
+                }
+                remoteFiles.setFileId(fileId);
+                return remoteFiles;
+            }
+            RepositoryMap repositories = null;
+            try {
+                repositories = GATEWAY.getSharedResources(context).repositories();
+            } catch (DSOutOfServiceException dsose) {
+                    LOGGER.fatal(dsose, "cannot obtain shared resources from server");
+                    abortOnFatalError(3);
+            }
+            final Iterator<OriginalFile> descriptions = repositories.descriptions.iterator();
+            final Iterator<RepositoryPrx> proxies = repositories.proxies.iterator();
+            while (descriptions.hasNext() && proxies.hasNext()) {
+                final OriginalFile description = descriptions.next();
+                final RepositoryPrx proxy = proxies.next();
+                if (fileRepoUuid.getValue().equals(description.getHash().getValue())) {
+                    return proxy.fileById(fileId);
+                }
+            }
+            LOGGER.fatal(null, "cannot access repository for file " + fileId);
+            abortOnFatalError(3);
+        } catch (ServerError se) {
+            LOGGER.fatal(se, "cannot obtain handle to read file " + fileId);
+            abortOnFatalError(3);
+        }
+        return null;
+    }
+
+    /**
      * Download the originally uploaded image files.
      * @param fileMapper the file mapper
      * @param imageIds the IDs of the images whose files should be downloaded
@@ -424,7 +488,17 @@ public class Download {
                 System.out.print("(" + currentImageCount + "/" + totalImageCount + ", " +
                         currentFileCount++ + "/" + totalFileCount + ") ");
                 final File file = fileMapper.getRepositoryFile(fileId);
-                files.download(remoteFiles, fileId, file);
+                final RawFileStorePrx rfs = getStoreForFile(fileId);
+                try {
+                    files.download(rfs, fileId, file);
+                } finally {
+                    try {
+                        rfs.close();
+                    } catch (ServerError se) {
+                        LOGGER.fatal(se, "failed to close raw file store");
+                        abortOnFatalError(3);
+                    }
+                }
                 if (file.isFile() && file.length() > 0) {
                     links.noteRepositoryFile(fileId, file);
                     final File imageFile = fileMapper.getImageFile(imageId, fileId, isCompanion);

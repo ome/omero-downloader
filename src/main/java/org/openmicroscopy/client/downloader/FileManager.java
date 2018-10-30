@@ -23,18 +23,11 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
 
 import omero.ServerError;
-import omero.api.IQueryPrx;
 import omero.api.RawFileStorePrx;
-import omero.grid.RepositoryMap;
-import omero.grid.RepositoryPrx;
 import omero.log.Logger;
 import omero.log.SimpleLogger;
-import omero.model.OriginalFile;
 
 import com.google.common.math.IntMath;
 
@@ -47,72 +40,18 @@ public class FileManager {
     private static final Logger LOGGER = new SimpleLogger();
     private static final int BATCH_SIZE = IntMath.checkedMultiply(16, 1048576);  // 16MiB
 
-    private final Map<String, RepositoryPrx> repos = new HashMap<>();
-    private final Map<RepositoryPrx, Long> repoIds = new HashMap<>();
-    private final IQueryPrx iQuery;
-
-    /**
-     * Construct a new file manager.
-     * @param repositories the repositories on the server
-     * @param iQuery the query service
-     */
-    public FileManager(RepositoryMap repositories, IQueryPrx iQuery) {
-        final Iterator<OriginalFile> descriptions = repositories.descriptions.iterator();
-        final Iterator<RepositoryPrx> proxies = repositories.proxies.iterator();
-        while (descriptions.hasNext() && proxies.hasNext()) {
-            final OriginalFile description = descriptions.next();
-            final RepositoryPrx proxy = proxies.next();
-            if (proxy != null) {
-                this.repos.put(description.getHash().getValue(), proxy);
-                this.repoIds.put(proxy, description.getId().getValue());
-            }
-        }
-        this.iQuery = iQuery;
-    }
-
     /**
      * Download a file from the server.
-     * @param fallbackRFS the file store to use if none of the repositories offers the file
+     * @param fileStore the file store to use if none of the repositories offers the file
      * @param fileId the ID of the file to download
      * @param destination the destination of the download
      */
-    public void download(RawFileStorePrx fallbackRFS, long fileId, File destination) {
-        /* obtain a handle to the remote file */
-        OriginalFile file = null;
-        try {
-            file = (OriginalFile) iQuery.get("OriginalFile", fileId);
-        } catch (ServerError se) {
-            LOGGER.fatal(se, "cannot use query service");
-            Download.abortOnFatalError(3);
-        }
-        /* repository of file is not mapped in OMERO model */
-        RawFileStorePrx repoRFS = null;
-        Long repoId = null;
-        for (final RepositoryPrx proxy : repos.values()) {
-            try {
-                repoRFS = proxy.fileById(fileId);
-                repoId = repoIds.get(proxy);
-                break;
-            } catch (ServerError se) {
-                /* try the next repository */
-            }
-        }
-        if (repoRFS == null) {
-            /* possibly a repository field value of null */
-            try {
-                fallbackRFS.setFileId(fileId);
-                repoRFS = fallbackRFS;
-                repoId = 0L;
-            } catch (ServerError se) {
-                LOGGER.fatal(se, "failed to obtain handle to file " + fileId);
-                Download.abortOnFatalError(3);
-            }
-        }
+    public void download(RawFileStorePrx fileStore, long fileId, File destination) {
         /* download the file */
         try {
             destination.getParentFile().mkdirs();
             long bytesDownloaded = destination.exists() ? destination.length() : 0;
-            long bytesRemaining = repoRFS.size() - bytesDownloaded;
+            long bytesRemaining = fileStore.size() - bytesDownloaded;
             if (bytesRemaining == 0) {
                 LOGGER.info(null, "already downloaded file " + fileId);
             } else {
@@ -131,7 +70,7 @@ public class FileManager {
                     } else {
                         bytesToRead = (int) bytesRemaining;
                     }
-                    out.write(repoRFS.read(bytesDownloaded, bytesToRead));
+                    out.write(fileStore.read(bytesDownloaded, bytesToRead));
                     bytesDownloaded += bytesToRead;
                     bytesRemaining -= bytesToRead;
                     System.out.print('.');
@@ -146,15 +85,6 @@ public class FileManager {
         } catch (IOException ioe) {
             LOGGER.fatal(ioe, "failed to write file " + destination);
             Download.abortOnFatalError(3);
-        } finally {
-            if (repoRFS != fallbackRFS) {
-                try {
-                    repoRFS.close();
-                } catch (ServerError se) {
-                    LOGGER.fatal(se, "failed to close remote file store");
-                    Download.abortOnFatalError(3);
-                }
-            }
         }
     }
 }

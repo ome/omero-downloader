@@ -80,6 +80,7 @@ public class FileManager {
                 out.close();
             }
         } catch (ServerError se) {
+            // TODO: LOGGER.warn(se, "failed to read file " + fileId);
             /* download restriction */
             System.out.println(" failed");
         } catch (IOException ioe) {

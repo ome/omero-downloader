@@ -452,11 +452,18 @@ public class Download {
                         currentFileCount++ + "/" + totalFileCount + ") ");
                 final File file = fileMapper.getRepositoryFile(fileId);
                 final RawFileStorePrx rfs = getStoreForFile(fileId);
+                boolean isAbort = false;
                 try {
                     FileManager.download(rfs, fileId, file);
+                } catch (IOException ioe) {
+                    LOGGER.warn(ioe, "failed to write file " + file);
+                    isAbort = true;
                 } finally {
                     try {
                         rfs.close();
+                        if (isAbort) {
+                            abortOnFatalError(3);
+                        }
                     } catch (ServerError se) {
                         LOGGER.fatal(se, "failed to close raw file store");
                         abortOnFatalError(3);

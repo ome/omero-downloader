@@ -45,8 +45,9 @@ public class FileManager {
      * @param fileStore the file store to use if none of the repositories offers the file
      * @param fileId the ID of the file to download
      * @param destination the destination of the download
+     * @throws IOException if the file could not be written locally
      */
-    public static void download(RawFileStorePrx fileStore, long fileId, File destination) {
+    public static void download(RawFileStorePrx fileStore, long fileId, File destination) throws IOException {
         /* download the file */
         try {
             destination.getParentFile().mkdirs();
@@ -83,9 +84,6 @@ public class FileManager {
             // TODO: LOGGER.warn(se, "failed to read file " + fileId);
             /* download restriction */
             System.out.println(" failed");
-        } catch (IOException ioe) {
-            LOGGER.fatal(ioe, "failed to write file " + destination);
-            Download.abortOnFatalError(3);
         }
     }
 }

@@ -169,7 +169,7 @@ public class FileMapper {
             for (final List<Long> imageIdBatch : Lists.partition(ImmutableList.copyOf(imageIds), BATCH_SIZE)) {
                 final Set<Long> filesetsThisBatch = new HashSet<>();
                 for (final List<RType> result : iQuery.projection(
-                        "SELECT fileset.id, id FROM Image WHERE fileset IS NOT NULL",
+                        "SELECT fileset.id, id FROM Image WHERE fileset IS NOT NULL AND id IN (:ids)",
                         new ParametersI().addIds(imageIdBatch), Download.ALL_GROUPS_CONTEXT)) {
                     final long filesetId = ((RLong) result.get(0)).getValue();
                     final long imageId = ((RLong) result.get(1)).getValue();

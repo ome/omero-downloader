@@ -79,7 +79,6 @@ import omero.gateway.model.ExperimenterData;
 import omero.gateway.util.Requests;
 import omero.grid.RepositoryMap;
 import omero.grid.RepositoryPrx;
-import omero.grid.SharedResourcesPrx;
 import omero.log.Logger;
 import omero.log.SimpleLogger;
 import omero.model.Annotation;
@@ -180,10 +179,7 @@ public class Download {
     private static SecurityContext ctx = null;
     private static IConfigPrx iConfig = null;
     private static IQueryPrx iQuery = null;
-    private static RawFileStorePrx remoteFiles = null;
-    private static RawPixelsStorePrx remotePixels = null;
     private static RequestManager requests = null;
-    private static FileManager files = null;
     private static LocalPaths paths = null;
     private static LinkMakerPaths links = null;
     private static XmlGenerator xmlGenerator = null;
@@ -235,7 +231,6 @@ public class Download {
 
     /**
      * Set up various services that may be used by this downloader.
-     * Stateful services may be closed down with {@link #closeDownServices()}.
      * @param baseDirectory the root of the repository into which to download
      */
     private static void setUpServices(String baseDirectory) {
@@ -246,13 +241,9 @@ public class Download {
             abortOnFatalError(3);
         }
 
-        SharedResourcesPrx sharedResources = null;
         try {
             iConfig = GATEWAY.getConfigService(ctx);
             iQuery = GATEWAY.getQueryService(ctx);
-            remoteFiles = GATEWAY.getRawFileService(ctx);
-            remotePixels = GATEWAY.getPixelsStore(ctx);
-            sharedResources = GATEWAY.getSharedResources(ctx);
         } catch (DSOutOfServiceException oose) {
             LOGGER.fatal(oose, "cannot access OMERO services");
             abortOnFatalError(3);
@@ -271,7 +262,6 @@ public class Download {
         }
 
         try {
-            files = new FileManager();
             xmlGenerator = new XmlGenerator(omeXmlService, iConfig, iQuery);
         } catch (ServerError se) {
             LOGGER.fatal(se, "failed to use services");
@@ -283,38 +273,11 @@ public class Download {
     }
 
     /**
-     * Close down the stateful services that were set up by {@link #setUpServices(java.lang.String)}.
-     */
-    private static void closeDownServices() {
-        try {
-            remoteFiles.close();
-            remotePixels.close();
-        } catch (ServerError se) {
-            LOGGER.fatal(se, "failed to close OMERO services");
-            abortOnFatalError(3);
-        }
-    }
-
-    /**
      * Close down services and terminate this process.
      * @param exitCode the status code with which to exit
      */
     public static void abortOnFatalError(int exitCode) {
         if (GATEWAY.isConnected()) {
-            if (remoteFiles != null) {
-                try {
-                    remoteFiles.close();
-                } catch (ServerError se) {
-                    LOGGER.warn(se, "failed to close raw file store");
-                }
-            }
-            if (remotePixels != null) {
-                try {
-                    remotePixels.close();
-                } catch (ServerError se) {
-                    LOGGER.warn(se, "failed to close remote pixels store");
-                }
-            }
             GATEWAY.disconnect();
         }
         System.exit(exitCode);
@@ -490,7 +453,7 @@ public class Download {
                 final File file = fileMapper.getRepositoryFile(fileId);
                 final RawFileStorePrx rfs = getStoreForFile(fileId);
                 try {
-                    files.download(rfs, fileId, file);
+                    FileManager.download(rfs, fileId, file);
                 } finally {
                     try {
                         rfs.close();
@@ -642,6 +605,14 @@ public class Download {
                     continue;
                 }
                 tileFile.getParentFile().mkdirs();
+                RawPixelsStorePrx remotePixels = null;
+                try {
+                    remotePixels = GATEWAY.getPixelsStore(ctx);
+                } catch (DSOutOfServiceException dsose) {
+                    LOGGER.fatal(dsose, "cannot obtain pixels store from server");
+                    abortOnFatalError(3);
+                }
+                try {
                 final LocalPixels localPixels = new LocalPixels(pixelsId, metadata, tileFile, remotePixels);
                 localPixels.downloadTiles();
                 for (final Map.Entry<File, TiffWriter> tiffFileAndWriter : tiffFiles.entrySet()) {
@@ -652,6 +623,9 @@ public class Download {
                     writer.setMetadataRetrieve(metadata);
                     writer.setId(tiffFile.getPath());
                     localPixels.writeTiles(writer);
+                }
+                } finally {
+                    remotePixels.close();
                 }
                 tileFile.delete();
             } catch (FormatException | IOException | ServerError e) {
@@ -930,7 +904,6 @@ public class Download {
             }
 
             /* all done with the server */
-            closeDownServices();
             GATEWAY.disconnect();
 
             if (!toWrite.isEmpty() && (parsedOptions.isFileType("ome-xml") || parsedOptions.isFileType("ome-xml-whole"))) {

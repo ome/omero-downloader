@@ -46,7 +46,7 @@ public class FileManager {
      * @param fileId the ID of the file to download
      * @param destination the destination of the download
      */
-    public void download(RawFileStorePrx fileStore, long fileId, File destination) {
+    public static void download(RawFileStorePrx fileStore, long fileId, File destination) {
         /* download the file */
         try {
             destination.getParentFile().mkdirs();

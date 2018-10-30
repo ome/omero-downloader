@@ -166,7 +166,7 @@ public class LocalPaths {
     public File getExportFile(ModelType objectType, long objectId, String name) {
         final StringBuilder localFile = getModelObjectPrefix(objectType, objectId);
         localFile.append("Export");
-        return getSanitizedFile(localFile.toString(), name);
+        return getSanitizedFile(localFile.toString(), name.replace(File.separatorChar, '!'));
     }
 
     /**

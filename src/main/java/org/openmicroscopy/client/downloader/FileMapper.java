@@ -170,7 +170,7 @@ public class FileMapper {
                 final Set<Long> filesetsThisBatch = new HashSet<>();
                 for (final List<RType> result : iQuery.projection(
                         "SELECT fileset.id, id FROM Image WHERE fileset IS NOT NULL",
-                        new ParametersI().addIds(imageIdBatch))) {
+                        new ParametersI().addIds(imageIdBatch), Download.ALL_GROUPS_CONTEXT)) {
                     final long filesetId = ((RLong) result.get(0)).getValue();
                     final long imageId = ((RLong) result.get(1)).getValue();
                     imagesOfFilesets.put(filesetId, imageId);
@@ -181,7 +181,7 @@ public class FileMapper {
                     for (final List<RType> result : iQuery.projection(
                             "SELECT fileset.id, originalFile.id, originalFile.repo, originalFile.path, originalFile.name " +
                             "FROM FilesetEntry WHERE fileset.id IN (:ids)",
-                            new ParametersI().addIds(filesetsThisBatch))) {
+                            new ParametersI().addIds(filesetsThisBatch), Download.ALL_GROUPS_CONTEXT)) {
                         final long filesetId = ((RLong) result.get(0)).getValue();
                         final long fileId = ((RLong) result.get(1)).getValue();
                         final String repository = ((RString) result.get(2)).getValue();
@@ -229,7 +229,7 @@ public class FileMapper {
         final Set<Long> pixelsIds = new HashSet<>();
         for (final List<RType> result : iQuery.projection(
                 "SELECT image.id, id FROM Pixels WHERE image.id IN (:ids))",
-                new ParametersI().addIds(imageIds))) {
+                new ParametersI().addIds(imageIds), Download.ALL_GROUPS_CONTEXT)) {
             final long imageId = ((RLong) result.get(0)).getValue();
             final long pixelsId = ((RLong) result.get(1)).getValue();
             pixelsOfImages.put(imageId, pixelsId);
@@ -240,7 +240,7 @@ public class FileMapper {
         }
         for (final List<RType> result : iQuery.projection(
                 "SELECT parent.id, parent.name FROM PixelsOriginalFileMap WHERE child.id IN (:ids))",
-                new ParametersI().addIds(pixelsIds))) {
+                new ParametersI().addIds(pixelsIds), Download.ALL_GROUPS_CONTEXT)) {
             final long fileId = ((RLong) result.get(0)).getValue();
             final String name = ((RString) result.get(1)).getValue();
             final OriginalFile file = new OriginalFile(fileId, name);

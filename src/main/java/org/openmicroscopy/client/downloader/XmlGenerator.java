@@ -77,6 +77,7 @@ import omero.model.TagAnnotation;
 import omero.model.TermAnnotation;
 import omero.model.TimestampAnnotation;
 import omero.model.XmlAnnotation;
+import omero.sys.Parameters;
 import omero.sys.ParametersI;
 
 import org.openmicroscopy.client.downloader.metadata.AnnotationMetadata;
@@ -205,7 +206,8 @@ public class XmlGenerator {
                         final String hql = relationship.getValue();
                         if (listener.isWanted(childType)) {
                             for (final List<Long> idBatch : Lists.partition(parentIds, BATCH_SIZE)) {
-                                for (final List<RType> result :iQuery.projection(hql, new ParametersI().addIds(idBatch))) {
+                                final Parameters params = new ParametersI().addIds(idBatch);
+                                for (final List<RType> result : iQuery.projection(hql, params, Download.ALL_GROUPS_CONTEXT)) {
                                     final long parentId = ((RLong) result.get(0)).getValue();
                                     final long childId = ((RLong) result.get(1)).getValue();
                                     listener.contains(parentType, parentId, childType, childId);
@@ -291,7 +293,7 @@ public class XmlGenerator {
         final List<Annotation> annotations = new ArrayList<>(ids.size());
         for (final IObject result : iQuery.findAllByQuery(
                 "FROM Annotation a " +
-                "WHERE a.id IN (:ids)", new ParametersI().addIds(ids))) {
+                "WHERE a.id IN (:ids)", new ParametersI().addIds(ids), Download.ALL_GROUPS_CONTEXT)) {
             annotations.add((Annotation) result);
         }
         return annotations;
@@ -319,7 +321,7 @@ public class XmlGenerator {
                 "LEFT OUTER JOIN FETCH l.mode " +
                 "LEFT OUTER JOIN FETCH p.details.updateEvent " +
                 "LEFT OUTER JOIN FETCH c.details.updateEvent " +
-                "WHERE i.id IN (:ids)", new ParametersI().addIds(ids))) {
+                "WHERE i.id IN (:ids)", new ParametersI().addIds(ids), Download.ALL_GROUPS_CONTEXT)) {
             images.add((Image) result);
         }
         return images;
@@ -341,7 +343,7 @@ public class XmlGenerator {
                 "LEFT OUTER JOIN FETCH r.shapes AS s " +
                 "LEFT OUTER JOIN FETCH r.details.updateEvent " +
                 "LEFT OUTER JOIN FETCH s.details.updateEvent " +
-                "WHERE r.id IN (:ids)", new ParametersI().addIds(ids))) {
+                "WHERE r.id IN (:ids)", new ParametersI().addIds(ids), Download.ALL_GROUPS_CONTEXT)) {
             rois.add((Roi) result);
         }
         return rois;

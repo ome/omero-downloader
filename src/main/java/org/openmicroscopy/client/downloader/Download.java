@@ -57,6 +57,8 @@ import loci.formats.out.OMETiffWriter;
 import loci.formats.out.TiffWriter;
 import loci.formats.services.OMEXMLService;
 
+import ome.system.Login;
+
 import omero.RLong;
 import omero.RString;
 import omero.RType;
@@ -101,6 +103,8 @@ import org.openmicroscopy.client.downloader.options.OptionParser;
  * @author m.t.b.carroll@dundee.ac.uk
  */
 public class Download {
+
+    public static final ImmutableMap<String, String> ALL_GROUPS_CONTEXT = ImmutableMap.of(Login.OMERO_GROUP, "-1");
 
     private static final Logger LOGGER = new SimpleLogger();
     private static final Gateway GATEWAY = new Gateway(LOGGER);
@@ -321,7 +325,7 @@ public class Download {
         try {
             results = iQuery.projection(
                     "SELECT id, hash FROM OriginalFile WHERE hash IS NOT NULL AND mimetype = :repo",
-                    new ParametersI().add("repo", omero.rtypes.rstring("Repository")));
+                    new ParametersI().add("repo", omero.rtypes.rstring("Repository")), ALL_GROUPS_CONTEXT);
             if (CollectionUtils.isEmpty(results)) {
                 LOGGER.error(null, "cannot retrieve repositories");
                 return Collections.emptyMap();

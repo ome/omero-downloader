@@ -613,17 +613,17 @@ public class Download {
                     abortOnFatalError(3);
                 }
                 try {
-                final LocalPixels localPixels = new LocalPixels(pixelsId, metadata, tileFile, remotePixels);
-                localPixels.downloadTiles();
-                for (final Map.Entry<File, TiffWriter> tiffFileAndWriter : tiffFiles.entrySet()) {
-                    System.out.print(countPrefix);
-                    final File tiffFile = tiffFileAndWriter.getKey();
-                    final TiffWriter writer = tiffFileAndWriter.getValue();
-                    writer.setCompression(TiffWriter.COMPRESSION_J2K);
-                    writer.setMetadataRetrieve(metadata);
-                    writer.setId(tiffFile.getPath());
-                    localPixels.writeTiles(writer);
-                }
+                    final LocalPixels localPixels = new LocalPixels(pixelsId, metadata, tileFile, remotePixels);
+                    localPixels.downloadTiles();
+                    for (final Map.Entry<File, TiffWriter> tiffFileAndWriter : tiffFiles.entrySet()) {
+                        System.out.print(countPrefix);
+                        final File tiffFile = tiffFileAndWriter.getKey();
+                        final TiffWriter writer = tiffFileAndWriter.getValue();
+                        writer.setCompression(TiffWriter.COMPRESSION_J2K);
+                        writer.setMetadataRetrieve(metadata);
+                        writer.setId(tiffFile.getPath());
+                        localPixels.writeTiles(writer);
+                    }
                 } finally {
                     remotePixels.close();
                 }

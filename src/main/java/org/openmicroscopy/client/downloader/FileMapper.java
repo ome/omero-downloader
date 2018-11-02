@@ -206,6 +206,10 @@ public class FileMapper {
                         files.put(fileId, file);
                     }
                 }
+            }
+            final Set<Long> allImages = new HashSet<>(imageIds);
+            allImages.addAll(filesetOfImages.keySet());
+            for (final List<Long> imageIdBatch : Lists.partition(ImmutableList.copyOf(allImages), BATCH_SIZE)) {
                 queryPixels(imageIdBatch);
             }
         } catch (ServerError se) {

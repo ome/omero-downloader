@@ -179,6 +179,14 @@ public class FileMapper {
                 }
                 if (!filesetsThisBatch.isEmpty()) {
                     for (final List<RType> result : iQuery.projection(
+                            "SELECT fileset.id, id FROM Image WHERE fileset.id IN (:ids)",
+                            new ParametersI().addIds(filesetsThisBatch), Download.ALL_GROUPS_CONTEXT)) {
+                        final long filesetId = ((RLong) result.get(0)).getValue();
+                        final long imageId = ((RLong) result.get(1)).getValue();
+                        imagesOfFilesets.put(filesetId, imageId);
+                        filesetOfImages.put(imageId, filesetId);
+                    }
+                    for (final List<RType> result : iQuery.projection(
                             "SELECT fileset.id, originalFile.id, originalFile.repo, originalFile.path, originalFile.name " +
                             "FROM FilesetEntry WHERE fileset.id IN (:ids)",
                             new ParametersI().addIds(filesetsThisBatch), Download.ALL_GROUPS_CONTEXT)) {

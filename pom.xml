@@ -21,7 +21,7 @@
 
   <organization>
     <name>Open Microscopy Environment</name>
-    <url>http://openmicroscopy.org/</url>
+    <url>https://www.openmicroscopy.org/</url>
   </organization>
 
   <developers>
@@ -29,9 +29,9 @@
       <id>openmicroscopy.org</id>
       <name>The OME Team</name>
       <email>ome-devel@lists.openmicroscopy.org.uk</email>
-      <url>http://openmicroscopy.org/</url>
+      <url>https://www.openmicroscopy.org/</url>
       <organization>Open Microscopy Environment</organization>
-      <organizationUrl>http://openmicroscopy.org/</organizationUrl>
+      <organizationUrl>https://www.openmicroscopy.org/</organizationUrl>
     </developer>
   </developers>
 
@@ -85,12 +85,12 @@
       <repository>
         <id>ome.maven</id>
         <name>OME Maven Artifactory</name>
-        <url>http://artifacts.openmicroscopy.org/artifactory/maven</url>
+        <url>https://artifacts.openmicroscopy.org/artifactory/maven</url>
       </repository>
       <repository>
         <id>unidata</id>
         <name>Unidata Repository</name>
-        <url>http://artifacts.unidata.ucar.edu/content/repositories/unidata-releases</url>
+        <url>https://artifacts.unidata.ucar.edu/content/repositories/unidata-releases</url>
       </repository>
   </repositories>
 

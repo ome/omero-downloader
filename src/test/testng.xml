@@ -1,0 +1,8 @@
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
+<suite name="TestSuite">
+  <test name="Unit">
+    <classes>
+       <class name="org.openmicroscopy.client.downloader.util.TruncatingOutputStreamTest"/>
+    </classes>
+  </test>
+</suite>

@@ -90,7 +90,7 @@ public class TruncatingOutputStream extends FilterOutputStream {
                     backlogSize += length;
                 }
             } else if (length < finalSkip) {
-                out.write(backlog, 0, backlogSize);
+                out.write(backlog, 0, length);
                 System.arraycopy(backlog, length, backlog, 0, finalSkip - length);
                 System.arraycopy(buffer, offset, backlog, finalSkip - length, length);
             } else {

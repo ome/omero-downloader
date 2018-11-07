@@ -3,14 +3,7 @@
 An OMERO client for downloading data in bulk from the server. The `-h`
 option prints a brief summary of command-line options.
 
-`mvn package` builds and packages the downloader. There is not yet an
-application launcher script but on Unix-like systems it can suffice to
-use the trivial,
-
-```
-$ cat download.sh
-java -jar target/downloader-*-jar-with-dependencies.jar "$@"
-```
+`mvn package` builds and packages the downloader.
 
 
 # Caveat

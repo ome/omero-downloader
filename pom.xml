@@ -146,6 +146,7 @@
         <artifactId>maven-assembly-plugin</artifactId>
         <version>3.1.0</version>
         <configuration>
+          <finalName>downloader</finalName>
           <archive>
             <manifest>
               <mainClass>org.openmicroscopy.client.downloader.Download</mainClass>

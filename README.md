@@ -36,6 +36,11 @@ Within `/tmp/repo/Image/` it may seem inconvenient to have each image's
 downloaded files sorted into separate `Binary` and `Companion`
 directories. However, these are simply symbolic links that can be
 followed to find the files together within the `Repository` directory.
+When binary and companion files should be used together the `realpath`
+utility from GNU coreutils can be helpful, e.g.,
+```
+showinf -autoscale `realpath /tmp/repo/Image/123/Binary/myimage`
+```
 
 
 # Targeting multiple images

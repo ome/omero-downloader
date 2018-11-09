@@ -470,11 +470,12 @@ public class Download {
                     }
                 }
                 if (file.isFile() && file.length() > 0) {
+                    final boolean isFileCompanion = companionFiles.contains(fileId);
                     links.noteRepositoryFile(fileId, file);
-                    final File imageFile = fileMapper.getImageFile(imageId, fileId, isCompanion);
+                    final File imageFile = fileMapper.getImageFile(imageId, fileId, isFileCompanion);
                     links.noteModelObjectFile(ModelType.IMAGE, imageId, fileId, imageFile);
                     if (filesetId != null) {
-                        final File filesetFile = fileMapper.getFilesetFile(fileId, isCompanion);
+                        final File filesetFile = fileMapper.getFilesetFile(fileId, isFileCompanion);
                         links.noteModelObjectFile(ModelType.FILESET, filesetId, fileId, filesetFile);
                     }
                 } else {

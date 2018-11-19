@@ -731,6 +731,10 @@ public class Download {
                 int currentCount = 1;
                 for (final long imageId : imageIds) {
                     System.out.print("(" + currentCount++ + "/" + totalCount + ") ");
+                    if (!paths.getMetadataFile(ModelType.IMAGE, imageId).exists()) {
+                        System.out.println("no metadata downloaded for image " + imageId);
+                        continue;
+                    }
                     final File exportFile = getReferencedXmlFile(ModelType.IMAGE, imageId);
                     if (exportFile.exists()) {
                         System.out.println("already assembled metadata for image " + imageId);
@@ -750,6 +754,10 @@ public class Download {
                 int currentCount = 1;
                 for (final long roiId : roiIds) {
                     System.out.print("(" + currentCount++ + "/" + totalCount + ") ");
+                    if (!paths.getMetadataFile(ModelType.ROI, roiId).exists()) {
+                        System.out.println("no metadata downloaded for ROI " + roiId);
+                        continue;
+                    }
                     final File exportFile = getReferencedXmlFile(ModelType.ROI, roiId);
                     if (exportFile.exists()) {
                         System.out.println("already assembled metadata for ROI " + roiId);
@@ -769,6 +777,10 @@ public class Download {
                 int currentCount = 1;
                 for (final long annotationId : annotationIds) {
                     System.out.print("(" + currentCount++ + "/" + totalCount + ") ");
+                    if (!paths.getMetadataFile(ModelType.ANNOTATION, annotationId).exists()) {
+                        System.out.println("no metadata downloaded for annotation " + annotationId);
+                        continue;
+                    }
                     final File exportFile = getReferencedXmlFile(ModelType.ANNOTATION, annotationId);
                     if (exportFile.exists()) {
                         System.out.println("already assembled metadata for annotation " + annotationId);

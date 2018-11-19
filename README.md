@@ -95,7 +95,7 @@ export regardless of images.
 
 # Licensing
 
-To be determined for initial release.
+Available as Open Source: see [the license](LICENSE.txt) for details.
 
 Copyright (C) 2016-2018 University of Dundee & Open Microscopy Environment.
 All rights reserved.

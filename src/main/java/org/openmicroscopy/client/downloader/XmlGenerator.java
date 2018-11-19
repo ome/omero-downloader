@@ -363,6 +363,9 @@ public class XmlGenerator {
         document.appendChild(xmlElement);
         try (final OutputStream out = new FileOutputStream(temporaryFile)) {
             XMLTools.writeXML(out, document, false);
+        } catch (IOException | TransformerException e) {
+            temporaryFile.delete();
+            throw e;
         }
         temporaryFile.renameTo(destination);
     }

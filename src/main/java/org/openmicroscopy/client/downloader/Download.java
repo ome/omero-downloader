@@ -776,8 +776,11 @@ public class Download {
                     }
                     final File temporaryFile = new File(exportFile.getParentFile(), "temp-" + UUID.randomUUID());
                     try (final OutputStream out = new FileOutputStream(temporaryFile);
-                         final XmlAssembler writer = new XmlAssembler(omeXmlService, containment, metadataFiles, out)) {
+                        final XmlAssembler writer = new XmlAssembler(omeXmlService, containment, metadataFiles, out)) {
                         writer.writeAnnotation(annotationId);
+                    } catch (IOException ioe) {
+                      temporaryFile.delete();
+                      throw ioe;
                     }
                     temporaryFile.renameTo(exportFile);
                     System.out.println(" done");

@@ -582,7 +582,7 @@ public class XmlGenerator {
             System.out.println("written " + objectWriter.getObjectsName() +" as XML, already have " + ids.size());
             return;
         }
-        System.out.print("writing " + objectWriter.getObjectsName() +" as XML, need " + ids.size());
+        System.out.print("writing " + objectWriter.getObjectsName() +" as XML, need up to " + ids.size());
         final int alreadyHave = ids.size() - files.size();
         if (alreadyHave > 0) {
             System.out.print(", already have " + alreadyHave);

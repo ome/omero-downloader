@@ -19,9 +19,8 @@ before_script:
 build:
   stage: build
   script:
-    - apk add --update make
     - docker build --pull -t $CONTAINER_TEST_IMAGE .
-    - make DIR="$(dirname ${CI_PROJECT_DIR})/shared" IMAGE=${CONTAINER_TEST_IMAGE} all
+    - echo TODO add test scenario here
     - docker push $CONTAINER_TEST_IMAGE
 
 release-image:

@@ -1,0 +1,34 @@
+image: docker:stable
+
+services:
+- docker:dind
+
+variables:
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_DRIVER: overlay2
+  CONTAINER_TEST_IMAGE: registry.gitlab.com/openmicroscopy/incubator/omero-downloader/cli:$CI_COMMIT_REF_SLUG
+  CONTAINER_RELEASE_IMAGE: registry.gitlab.com/openmicroscopy/incubator/omero-downloader:latest
+
+stages:
+- build
+- release
+
+before_script:
+  - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN registry.gitlab.com
+
+build:
+  stage: build
+  script:
+    - apk add --update make
+    - docker build --pull -t $CONTAINER_TEST_IMAGE .
+    - make DIR="$(dirname ${CI_PROJECT_DIR})/shared" IMAGE=${CONTAINER_TEST_IMAGE} all
+    - docker push $CONTAINER_TEST_IMAGE
+
+release-image:
+  stage: release
+  script:
+    - docker pull $CONTAINER_TEST_IMAGE
+    - docker tag $CONTAINER_TEST_IMAGE $CONTAINER_RELEASE_IMAGE
+    - docker push $CONTAINER_RELEASE_IMAGE
+  only:
+    - master

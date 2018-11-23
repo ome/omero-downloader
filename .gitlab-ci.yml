@@ -6,8 +6,9 @@ services:
 variables:
   DOCKER_HOST: tcp://docker:2375
   DOCKER_DRIVER: overlay2
-  CONTAINER_TEST_IMAGE: registry.gitlab.com/openmicroscopy/incubator/omero-downloader/cli:$CI_COMMIT_REF_SLUG
-  CONTAINER_RELEASE_IMAGE: registry.gitlab.com/openmicroscopy/incubator/omero-downloader:latest
+  CONTAINER_TEST_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+  CONTAINER_RELEASE_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+  CONTAINER_LATEST_IMAGE: $CI_REGISTRY_IMAGE:latest
 
 stages:
 - build
@@ -32,6 +33,8 @@ release-image:
   script:
     - docker pull $CONTAINER_TEST_IMAGE
     - docker tag $CONTAINER_TEST_IMAGE $CONTAINER_RELEASE_IMAGE
+    - docker tag $CONTAINER_TEST_IMAGE $CONTAINER_LATEST_IMAGE
     - docker push $CONTAINER_RELEASE_IMAGE
+    - docker push $CONTAINER_LATEST_IMAGE
   only:
     - master

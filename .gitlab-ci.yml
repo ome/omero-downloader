@@ -20,7 +20,8 @@ build:
   stage: build
   script:
     - docker build --pull -t $CONTAINER_TEST_IMAGE .
-    - echo TODO add test scenario here
+    - git clone git://github.com/openmicroscopy/omero-test-infra .omero
+    - .omero/docker lib
     - docker push $CONTAINER_TEST_IMAGE
 
 release-image:

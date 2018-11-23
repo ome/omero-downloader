@@ -35,5 +35,8 @@ RUN useradd -ms /bin/bash omero
 USER omero
 COPY --from=build /home/build/download.sh /usr/local/bin/omero-downloader
 COPY --from=build /home/build/target/downloader-jar-with-dependencies.jar /usr/local/bin
+RUN mkdir /tmp/downloads
 ENTRYPOINT ["/usr/local/bin/omero-downloader"]
-VOLUME "/downloads"
+# Environment variable for -d could default to downloads as well
+WORKDIR /tmp/downloads
+VOLUME /tmp/downloads

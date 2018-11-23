@@ -31,6 +31,8 @@ RUN mvn dependency:tree
 RUN mvn package -DskipTests
 
 FROM ${RUN_IMAGE} as run
+RUN useradd -ms /bin/bash omero
+USER omero
 COPY --from=build /home/build/download.sh /usr/local/bin/omero-downloader
 COPY --from=build /home/build/target/downloader-jar-with-dependencies.jar /usr/local/bin
 ENTRYPOINT ["/usr/local/bin/omero-downloader"]

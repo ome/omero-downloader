@@ -14,7 +14,8 @@ stages:
 - release
 
 before_script:
-  - apk add git bash
+  - apk add git bash py-pip
+  - pip install docker-compose
   - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN registry.gitlab.com
 
 build:

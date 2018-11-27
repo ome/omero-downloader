@@ -633,10 +633,15 @@ public class Download {
                 try {
                     final LocalPixels localPixels = new LocalPixels(pixelsId, metadata, tileFile, remotePixels);
                     localPixels.downloadTiles();
+                    final boolean isBigTiff = tileFile.length() > 3L * 1024 * 1024 * 1024;
                     for (final Map.Entry<File, TiffWriter> tiffFileAndWriter : tiffFiles.entrySet()) {
                         System.out.print(countPrefix);
                         final File tiffFile = tiffFileAndWriter.getKey();
                         final TiffWriter writer = tiffFileAndWriter.getValue();
+                        if (isBigTiff) {
+                            /* Downloaded tiles are over 3GB so resulting TIFF may be larger still. */
+                            writer.setBigTiff(true);
+                        }
                         writer.setCompression(TiffWriter.COMPRESSION_J2K);
                         writer.setMetadataRetrieve(metadata);
                         writer.setId(tiffFile.getPath());

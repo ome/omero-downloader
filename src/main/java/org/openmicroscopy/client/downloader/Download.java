@@ -413,8 +413,9 @@ public class Download {
             boolean isLinkFilesets, boolean isLinkImages) {
         /* map the files of the targeted images */
         final int totalImageCount = imageIds.size();
-        int currentImageCount = 1;
+        int currentImageCount = 0;
         for (final long imageId : Ordering.natural().immutableSortedCopy(imageIds)) {
+            currentImageCount++;
             System.out.print("(" + currentImageCount + "/" + totalImageCount + ") ");
 
             /* determine the used files */
@@ -447,7 +448,6 @@ public class Download {
             if (wantedFileIds.isEmpty()) {
                 System.out.print("(" + currentImageCount + "/" + totalImageCount + ", 0/0) ");
                 System.out.println("no files to download for image " + imageId);
-                currentImageCount++;
                 continue;
             }
             final Set<Long> failedFileIds = new HashSet<>();
@@ -492,7 +492,6 @@ public class Download {
             /* create symbolic links to the downloaded files */
             final Set<Long> downloadedFileIds = Sets.difference(wantedFileIds, failedFileIds);
             if (downloadedFileIds.isEmpty()) {
-                currentImageCount++;
                 continue;
             }
             try {
@@ -511,7 +510,6 @@ public class Download {
                 LOGGER.fatal(ioe, "cannot create repository links");
                 abortOnFatalError(3);
             }
-            currentImageCount++;
         }
     }
 

@@ -16,14 +16,14 @@ early state there are use cases for which it offers significant help.
 # Storing downloads locally
 
 For testing, make a new scratch directory, say `/tmp/repo/`, to specify
-to the `-d` option below. In general one should use a separate download
+to the `-b` option below. In general one should use a separate download
 directory for each OMERO server from which one fetches data.
 
 
 # Downloading imported image files
 
 ```
-./download.sh -d /tmp/repo -s <server host> -u <user name> -w <password> -f binary Image:<image ID>
+./download.sh -b /tmp/repo -s <server host> -u <user name> -w <password> -f binary Image:<image ID>
 ```
 
 downloads an image's binary files into the scratch directory. To include
@@ -76,7 +76,7 @@ OME-TIFF export the `-x` option also limits download of this.
 annotations on them as many standalone XML files. For example, with,
 
 ```
-./download.sh -d /tmp/repo -s <server host> -u <user name> -w <password> -f ome-xml-parts Image:123
+./download.sh -b /tmp/repo -s <server host> -u <user name> -w <password> -f ome-xml-parts Image:123
 ```
 
 the ROIs on image 123 can then be found as

@@ -121,7 +121,7 @@ public class OptionParser {
          * @return the root of the local repository, may be {@code null}
          */
         public String getBaseDirectory() {
-            return chosenOptions.getOptionValue('d');
+            return chosenOptions.getOptionValue('b');
         }
 
         /**
@@ -165,7 +165,7 @@ public class OptionParser {
                     + (objectTypes.getDefaultNames().isEmpty() ? OptionSet.NONE
                                                                : Joiner.on(',').join(objectTypes.getDefaultNames())))
             .addOption("a", "all-fileset", false, "download files for whole fileset")
-            .addOption("d", "base", true, "base directory for download")
+            .addOption("b", "base", true, "base directory for download")
             .addOption("l", "links", true, "links to create, may be "
                     + Joiner.on(',').join(linkTypes.getOptionNames()) + " or " + OptionSet.NONE + ", default is "
                     + (linkTypes.getDefaultNames().isEmpty() ? OptionSet.NONE

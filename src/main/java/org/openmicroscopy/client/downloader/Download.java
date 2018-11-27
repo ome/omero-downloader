@@ -444,6 +444,12 @@ public class Download {
 
             /* download the files */
             final Set<Long> wantedFileIds = Sets.union(binaryFiles, companionFiles);
+            if (wantedFileIds.isEmpty()) {
+                System.out.print("(" + currentImageCount + "/" + totalImageCount + ", 0/0) ");
+                System.out.println("no files to download for image " + imageId);
+                currentImageCount++;
+                continue;
+            }
             final Set<Long> failedFileIds = new HashSet<>();
             final int totalFileCount = wantedFileIds.size();
             int currentFileCount = 1;

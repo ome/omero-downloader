@@ -491,6 +491,10 @@ public class Download {
 
             /* create symbolic links to the downloaded files */
             final Set<Long> downloadedFileIds = Sets.difference(wantedFileIds, failedFileIds);
+            if (downloadedFileIds.isEmpty()) {
+                currentImageCount++;
+                continue;
+            }
             try {
                 if (filesetId != null) {
                     if (isLinkFilesets) {

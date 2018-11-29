@@ -63,6 +63,8 @@ public class FileManager {
                 }
                 System.out.print(" download of file " + fileId + "...");
                 System.out.flush();
+                /* check for download restriction before creating local file */
+                fileStore.read(0, 0);
                 final OutputStream out = new FileOutputStream(destination, true);
                 do {
                     final int bytesToRead;

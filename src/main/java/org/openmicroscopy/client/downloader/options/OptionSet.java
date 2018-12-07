@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 University of Dundee & Open Microscopy Environment.
+ * Copyright (C) 2016-2018 University of Dundee & Open Microscopy Environment.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -28,7 +28,9 @@ import com.google.common.collect.Sets;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * A set of command-line options of which a subset may be chosen.
@@ -71,6 +73,7 @@ class OptionSet {
     }
 
     private final ImmutableSortedSet<String> options, defaults;
+    private final Set<String> hidden = new HashSet<>();
 
     /**
      * Construct a set of command-line options.
@@ -86,11 +89,25 @@ class OptionSet {
     }
 
     /**
+     * Prevent {@link #getOptionNames()} and {@link #getDefaultNames()} from returning the given option.
+     * @param optionToHide one of the options with which this instance was constructed
+     * @return this instance, for method chaining
+     */
+    OptionSet hide(String optionToHide) {
+        if (options.contains(optionToHide)) {
+            hidden.add(optionToHide);
+        } else {
+            throw new IllegalArgumentException("unknown option: " + optionToHide);
+        }
+        return this;
+    }
+
+    /**
      * Get the names of the options.
      * @return the options, sorted
      */
     Collection<String> getOptionNames() {
-        return options;
+        return Sets.difference(options, hidden);
     }
 
     /**
@@ -98,7 +115,7 @@ class OptionSet {
      * @return the defaults, sorted
      */
     Collection<String> getDefaultNames() {
-        return defaults;
+        return Sets.difference(defaults, hidden);
     }
 
     /**

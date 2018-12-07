@@ -141,7 +141,7 @@ public class OptionParser {
 
     private static final OptionSet fileTypes = new OptionSet(Arrays.asList(
             "binary", "companion", "tiff", "ome-tiff", "ome-xml", "ome-xml-whole", "ome-xml-parts"),
-            Collections.<String>emptySet());
+            Collections.<String>emptySet()).hide("tiff").hide("ome-tiff");
     private static final OptionSet objectTypes = new OptionSet(Arrays.asList(
             // TODO: include "project", "dataset", "folder", "experiment", "instrument", "screen", "plate"
             "image", "annotation", "roi"),

@@ -53,24 +53,10 @@ Additionally, specifying `-a` extends the targeted images to include all
 that are in the same fileset as any targeted image.
 
 
-# Exporting images
+# Fetching metadata
 
-A workaround to not being able to download plates is to instead export
-their images as TIFF. The `-f` option supports `tiff` and `ome-tiff`.
-
-Big images can be exported. Repeating an export resumes any interrupted
-image tile downloads and skips images that were already exported.
-
-The metadata included in OME-TIFF export currently includes that of the
-images, ROIs, and some of the simple kinds of annotation on either of
-those. This can be limited with the `-x` option if less metadata is
-desired.
-
-
-# Fetching metadata only
-
-Image metadata is available as OME-XML without pixel data. As for
-OME-TIFF export the `-x` option also limits download of this.
+Image metadata is available as OME-XML without pixel data.
+The included metadata can be limited with the `-x` option.
 
 `ome-xml-parts` downloads metadata for images, ROIs and some simple
 annotations on them as many standalone XML files. For example, with,

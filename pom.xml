@@ -142,24 +142,36 @@
       <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
         <version>3.1.0</version>
-        <configuration>
-          <finalName>downloader</finalName>
-          <archive>
-            <manifest>
-              <mainClass>org.openmicroscopy.client.downloader.Download</mainClass>
-            </manifest>
-          </archive>
-          <descriptorRefs>
-            <descriptorRef>jar-with-dependencies</descriptorRef>
-          </descriptorRefs>
-        </configuration>
         <executions>
           <execution>
-            <id>make-assembly</id>
+            <id>make-jar</id>
+            <phase>package</phase>
+            <goals>
+	      <goal>single</goal>
+	    </goals>
+            <configuration>
+              <descriptorRefs>
+		<descriptorRef>jar-with-dependencies</descriptorRef>
+              </descriptorRefs>
+              <finalName>downloader</finalName>
+              <archive>
+		<manifest>
+		  <mainClass>org.openmicroscopy.client.downloader.Download</mainClass>
+		</manifest>
+              </archive>
+            </configuration>
+          </execution>
+          <execution>
+            <id>make-zip</id>
             <phase>package</phase>
             <goals>
               <goal>single</goal>
             </goals>
+            <configuration>
+	      <descriptors>
+		<descriptor>assembly/release.xml</descriptor>
+	      </descriptors>
+            </configuration>
           </execution>
         </executions>
       </plugin>

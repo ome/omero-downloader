@@ -22,9 +22,11 @@ ARG RUN_IMAGE=openjdk:8-slim
 FROM ${BUILD_IMAGE} as build
 USER root
 RUN useradd -ms /bin/bash build
+COPY --chown=build:build README.md /home/build/
+COPY --chown=build:build LICENSE.txt /home/build/
 COPY --chown=build:build pom.xml /home/build/
 COPY --chown=build:build src /home/build/src
-COPY --chown=build:build download* /home/build/
+COPY --chown=build:build download.* /home/build/
 USER build
 WORKDIR /home/build
 RUN mvn dependency:tree

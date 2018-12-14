@@ -9,6 +9,12 @@
   </formats>
   <files>
     <file>
+      <source>README.md</source>
+    </file>
+    <file>
+      <source>LICENSE.txt</source>
+    </file>
+    <file>
       <source>download.bat</source>
     </file>
     <file>

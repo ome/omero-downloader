@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
-        http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
   <modelVersion>4.0.0</modelVersion>
 
@@ -147,17 +147,17 @@
             <id>make-jar</id>
             <phase>package</phase>
             <goals>
-	      <goal>single</goal>
-	    </goals>
+              <goal>single</goal>
+            </goals>
             <configuration>
               <descriptorRefs>
-		<descriptorRef>jar-with-dependencies</descriptorRef>
+                <descriptorRef>jar-with-dependencies</descriptorRef>
               </descriptorRefs>
               <finalName>downloader</finalName>
               <archive>
-		<manifest>
-		  <mainClass>org.openmicroscopy.client.downloader.Download</mainClass>
-		</manifest>
+                <manifest>
+                  <mainClass>org.openmicroscopy.client.downloader.Download</mainClass>
+                </manifest>
               </archive>
             </configuration>
           </execution>
@@ -168,9 +168,9 @@
               <goal>single</goal>
             </goals>
             <configuration>
-	      <descriptors>
-		<descriptor>assembly/release.xml</descriptor>
-	      </descriptors>
+              <descriptors>
+                <descriptor>assembly/release.xml</descriptor>
+              </descriptors>
             </configuration>
           </execution>
         </executions>

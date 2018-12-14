@@ -169,7 +169,7 @@
             </goals>
             <configuration>
               <descriptors>
-                <descriptor>assembly/release.xml</descriptor>
+                <descriptor>src/assembly/release.xml</descriptor>
               </descriptors>
               <finalName>OMERO.downloader-${project.version}</finalName>
             </configuration>

@@ -3,7 +3,7 @@
 An OMERO client for downloading data in bulk from the server. The `-h`
 option prints a brief summary of command-line options.
 
-`mvn` builds and packages the downloader.
+From the source repository `mvn` builds and packages the downloader.
 
 
 # Caveat

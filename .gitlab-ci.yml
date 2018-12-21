@@ -37,4 +37,4 @@ release-image:
     - docker push $CONTAINER_RELEASE_IMAGE
     - docker push $CONTAINER_LATEST_IMAGE
   only:
-    - master
+    - tags

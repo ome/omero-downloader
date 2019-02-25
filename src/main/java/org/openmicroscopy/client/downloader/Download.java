@@ -693,6 +693,7 @@ public class Download {
                         }
                         writer.setCompression(TiffWriter.COMPRESSION_ZLIB);
                         writer.setMetadataRetrieve(metadata);
+                        writer.setWriteSequentially(true);
                         writer.setId(tiffFile.getPath());
                         localPixels.writeTiles(writer);
                     }

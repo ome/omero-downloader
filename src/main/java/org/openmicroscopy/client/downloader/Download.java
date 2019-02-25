@@ -642,6 +642,7 @@ public class Download {
                         }
                         writer.setCompression(TiffWriter.COMPRESSION_J2K);
                         writer.setMetadataRetrieve(metadata);
+                        writer.setWriteSequentially(true);
                         writer.setId(tiffFile.getPath());
                         localPixels.writeTiles(writer);
                     }

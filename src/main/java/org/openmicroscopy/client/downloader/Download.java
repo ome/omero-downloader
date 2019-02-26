@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 University of Dundee & Open Microscopy Environment.
+ * Copyright (C) 2016-2019 University of Dundee & Open Microscopy Environment.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -640,7 +640,7 @@ public class Download {
                             /* Downloaded tiles are over 3GB so resulting TIFF may be larger still. */
                             writer.setBigTiff(true);
                         }
-                        writer.setCompression(TiffWriter.COMPRESSION_J2K);
+                        writer.setCompression(TiffWriter.COMPRESSION_ZLIB);
                         writer.setMetadataRetrieve(metadata);
                         writer.setId(tiffFile.getPath());
                         localPixels.writeTiles(writer);

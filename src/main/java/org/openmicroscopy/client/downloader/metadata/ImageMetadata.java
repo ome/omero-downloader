@@ -50,6 +50,8 @@ import org.joda.time.Instant;
 
 /**
  * An instance of {@link loci.formats.meta.MetadataRetrieve} that provides metadata about OMERO images.
+ * Differs from {@link ome.services.blitz.impl.OmeroMetadata} in that {@link #getPixelsDimensionOrder(int)}
+ * reflects {@link loci.formats.in.TiffReader}'s ImageJ convention for 5D data for ease of exporting plain TIFFs.
  * @author m.t.b.carroll@dundee.ac.uk
  * @author Josh Moore josh at glencoesoftware.com
  * @author Chris Allan callan at blackcat.ca
@@ -178,7 +180,7 @@ public class ImageMetadata extends MetadataBase {
     @Override
     public DimensionOrder getPixelsDimensionOrder(int imageIndex)
     {
-        return DimensionOrder.XYZCT;
+        return DimensionOrder.XYCZT;
     }
 
     @Override

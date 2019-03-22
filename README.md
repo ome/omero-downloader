@@ -99,3 +99,8 @@ Available as Open Source: see [the license](LICENSE.txt) for details.
 
 Copyright (C) 2016-2019 University of Dundee & Open Microscopy Environment.
 All rights reserved.
+
+
+# See also
+
+- [Change Log](CHANGELOG.md)

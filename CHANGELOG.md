@@ -1,4 +1,4 @@
-# 2019-02-28 v0.1.4
+# 0.1.4 (Feburary 2019)
 
 TIFF export:
 
@@ -9,16 +9,16 @@ TIFF export:
 - List TIFF export options in user help.
 
 
-# 2019-02-21 v0.1.3
+# 0.1.3 (Feburary 2019)
 
 Fix the `download.bat` launch script for Windows users.
 
 
-# 2019-01-25 v0.1.{1,2}
+# 0.1.{1,2} (January 2019)
 
 Release when a tag is pushed.
 
 
-# 2018-12-20 v0.1.0
+# 0.1.0 (December 2018)
 
 Initial release.

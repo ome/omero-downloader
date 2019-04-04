@@ -35,6 +35,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.FileSystemException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -304,6 +307,31 @@ public class Download {
             GATEWAY.disconnect();
         }
         throw new FatalException(exitCode);
+    }
+
+    /**
+     * Test if the user can make symbolic links.
+     * @return if a symbolic link can be made
+     */
+    private static boolean isCanLink() {
+        boolean isCanLink = false;
+        try {
+            final Path file1 = Files.createTempFile("OMERO.downloader-", null);
+            final Path file2 = Files.createTempFile("OMERO.downloader-", null);
+            file1.toFile().deleteOnExit();
+            Files.delete(file2);
+            try {
+                Files.createSymbolicLink(file1, file2);
+                isCanLink = true;
+                Files.delete(file2);
+            } catch (FileSystemException fse) {
+                /* typical failure on Windows when user does not have linking privilege */
+            }
+        } catch (IOException ioe) {
+            LOGGER.fatal(ioe, "cannot manipulate temporary files");
+            abortOnFatalError(3);
+        }
+        return isCanLink;
     }
 
     /**
@@ -930,9 +958,17 @@ public class Download {
         /* write the requested files */
         if (!imageIds.isEmpty()) {
             if (parsedOptions.isFileType("binary") || parsedOptions.isFileType("companion")) {
+                /* check if -l option setting is viable */
+                boolean isLinkFilesets = parsedOptions.isLinkType("fileset");
+                boolean isLinkImages = parsedOptions.isLinkType("image");
+                if ((isLinkFilesets || isLinkImages) && !isCanLink()) {
+                    isLinkFilesets = false;
+                    isLinkImages = false;
+                    System.out.println("setting '-l none' because links cannot be created");
+                }
                 /* download the image files from the remote repository */
                 downloadFiles(fileMapper, imageIds, parsedOptions.isFileType("binary"), parsedOptions.isFileType("companion"),
-                        parsedOptions.isLinkType("fileset"), parsedOptions.isLinkType("image"));
+                        isLinkFilesets, isLinkImages);
             }
             if (parsedOptions.isFileType("tiff") || parsedOptions.isFileType("ome-tiff")) {
                 /* export the images via Bio-Formats */

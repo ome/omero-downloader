@@ -16,7 +16,7 @@ group context from limiting query results. The `main` method uses:
    are targeted. The `RequestManager` is a helper class for submitting
    requests to OMERO and ensuring that the response is of the expected
    type. A `FileMapper` instance stores the outcome of queries to
-   understand how filesets on the server relates to their images and
+   understand how filesets on the server relate to their images and
    pixels instances.
 
 1. `Download.downloadFiles` to implement the `-f` option's `binary` and

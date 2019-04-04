@@ -113,6 +113,29 @@ public class Download {
     private static final Pattern TARGET_PATTERN = Pattern.compile("([A-Z][A-Za-z]*):(\\d+(,\\d+)*)");
 
     /**
+     * A fatal condition has occurred.
+     */
+    public static final class FatalException extends RuntimeException {
+
+        private final int exitCode;
+
+        /**
+         * Construct a fatal exception for throwing.
+         * @param exitCode the exit code with which {@link #exit()} should terminate this process
+         */
+        public FatalException(int exitCode) {
+            this.exitCode = exitCode;
+        }
+
+        /**
+         * Terminate this process.
+         */
+        private void exit() {
+            System.exit(exitCode);
+        }
+    }
+
+    /**
      * Maps parent-child relationships among model objects: parent to child; types and IDs.
      */
     private static class ParentChildMap implements XmlGenerator.ContainmentListener {
@@ -280,7 +303,7 @@ public class Download {
         if (GATEWAY.isConnected()) {
             GATEWAY.disconnect();
         }
-        System.exit(exitCode);
+        throw new FatalException(exitCode);
     }
 
     /**
@@ -820,22 +843,9 @@ public class Download {
 
     /**
      * Perform the download as instructed.
-     * @param argv the command-line options
+     * @param parsedOptions the parsed command-line options
      */
-    public static void main(String argv[]) {
-        DebugTools.enableLogging("ERROR");
-
-        /* parse and validate the command-line options and connect to the OMERO server */
-        OptionParser.Chosen parsedOptions = null;
-        try {
-            parsedOptions = OptionParser.parse(argv);
-        } catch (IllegalArgumentException iae) {
-            System.err.println(iae.getLocalizedMessage());
-            LOGGER.fatal(iae, "failed to parse options");
-            abortOnFatalError(2);
-        }
-
-        try {
+    private static void actOnOptions(OptionParser.Chosen parsedOptions) {
             openGateway(parsedOptions);
             setUpServices(parsedOptions.getBaseDirectory());
 
@@ -947,9 +957,38 @@ public class Download {
                 /* assemble model objects from separate XML files into one XML file with Ref elements */
                 assembleReferencedXml(toWrite);
             }
+    }
+
+    /**
+     * Perform the download as instructed.
+     * @param argv the command-line options
+     */
+    public static void main(String argv[]) {
+        DebugTools.enableLogging("ERROR");
+
+        try {
+        /* parse and validate the command-line options and connect to the OMERO server */
+        OptionParser.Chosen parsedOptions = null;
+        try {
+            parsedOptions = OptionParser.parse(argv);
+        } catch (IllegalArgumentException iae) {
+            System.err.println(iae.getLocalizedMessage());
+            LOGGER.fatal(iae, "failed to parse options");
+            abortOnFatalError(2);
+        }
+
+        try {
+            actOnOptions(parsedOptions);
         } catch (Throwable t) {
+            if (t instanceof FatalException) {
+                throw t;
+            } else {
             LOGGER.fatal(t, "caught unexpected exception: " + t);
             abortOnFatalError(4);
+            }
+        }
+        } catch (FatalException fe) {
+            fe.exit();
         }
     }
 }

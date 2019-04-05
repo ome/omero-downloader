@@ -321,7 +321,7 @@ public class Download {
             file1.toFile().deleteOnExit();
             Files.delete(file2);
             try {
-                Files.createSymbolicLink(file1, file2);
+                Files.createSymbolicLink(file2, file1.toAbsolutePath());
                 isCanLink = true;
                 Files.delete(file2);
             } catch (FileSystemException fse) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 University of Dundee & Open Microscopy Environment.
+ * Copyright (C) 2016-2019 University of Dundee & Open Microscopy Environment.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -70,6 +70,7 @@ import omero.model.DoubleAnnotation;
 import omero.model.IObject;
 import omero.model.Image;
 import omero.model.LongAnnotation;
+import omero.model.MapAnnotation;
 import omero.model.Mask;
 import omero.model.Roi;
 import omero.model.Shape;
@@ -489,6 +490,8 @@ public class XmlGenerator {
                         annotationElement = omeElement.getStructuredAnnotations().getDoubleAnnotation(0);
                     } else if (annotation instanceof LongAnnotation) {
                         annotationElement = omeElement.getStructuredAnnotations().getLongAnnotation(0);
+                    } else if (annotation instanceof MapAnnotation) {
+                        annotationElement = omeElement.getStructuredAnnotations().getMapAnnotation(0);
                     } else if (annotation instanceof TagAnnotation) {
                         annotationElement = omeElement.getStructuredAnnotations().getTagAnnotation(0);
                     } else if (annotation instanceof TermAnnotation) {

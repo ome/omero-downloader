@@ -22,6 +22,7 @@ package org.openmicroscopy.client.downloader.metadata;
 import java.util.ArrayList;
 import java.util.List;
 
+import ome.xml.model.MapPair;
 import ome.xml.model.primitives.Timestamp;
 
 import omero.model.Annotation;
@@ -29,6 +30,8 @@ import omero.model.BooleanAnnotation;
 import omero.model.CommentAnnotation;
 import omero.model.DoubleAnnotation;
 import omero.model.LongAnnotation;
+import omero.model.MapAnnotation;
+import omero.model.NamedValue;
 import omero.model.TagAnnotation;
 import omero.model.TermAnnotation;
 import omero.model.TimestampAnnotation;
@@ -52,6 +55,7 @@ public class AnnotationMetadata extends MetadataBase {
     private final List<CommentAnnotation> commentAnnotationList = new ArrayList<>();
     private final List<DoubleAnnotation> doubleAnnotationList = new ArrayList<>();
     private final List<LongAnnotation> longAnnotationList = new ArrayList<>();
+    private final List<MapAnnotation> mapAnnotationList = new ArrayList<>();
     private final List<TagAnnotation> tagAnnotationList = new ArrayList<>();
     private final List<TermAnnotation> termAnnotationList = new ArrayList<>();
     private final List<TimestampAnnotation> timestampAnnotationList = new ArrayList<>();
@@ -68,6 +72,8 @@ public class AnnotationMetadata extends MetadataBase {
                 doubleAnnotationList.add((DoubleAnnotation) annotation);
             } else if (annotation instanceof LongAnnotation) {
                 longAnnotationList.add((LongAnnotation) annotation);
+            } else if (annotation instanceof MapAnnotation) {
+                mapAnnotationList.add((MapAnnotation) annotation);
             } else if (annotation instanceof TagAnnotation) {
                 tagAnnotationList.add((TagAnnotation) annotation);
             } else if (annotation instanceof TermAnnotation) {
@@ -103,6 +109,10 @@ public class AnnotationMetadata extends MetadataBase {
             else if (klass.equals(CommentAnnotation.class))
             {
                 return (T) commentAnnotationList.get(index);
+            }
+            else if (klass.equals(MapAnnotation.class))
+            {
+                return (T) mapAnnotationList.get(index);
             }
             else if (klass.equals(TimestampAnnotation.class))
             {
@@ -315,6 +325,48 @@ public class AnnotationMetadata extends MetadataBase {
         CommentAnnotation o = getAnnotation(
                 CommentAnnotation.class, commentAnnotationIndex);
         return o != null? fromRType(o.getTextValue()) : null;
+    }
+
+    @Override
+    public int getMapAnnotationCount()
+    {
+        return mapAnnotationList.size();
+    }
+
+    @Override
+    public String getMapAnnotationDescription(int mapAnnotationIndex)
+    {
+        return getAnnotationDescription(
+                MapAnnotation.class, mapAnnotationIndex);
+    }
+
+    @Override
+    public String getMapAnnotationID(int mapAnnotationIndex)
+    {
+        return getAnnotationID(MapAnnotation.class, mapAnnotationIndex);
+    }
+
+    @Override
+    public String getMapAnnotationNamespace(int mapAnnotationIndex)
+    {
+        return getAnnotationNamespace(
+                MapAnnotation.class, mapAnnotationIndex);
+    }
+
+    @Override
+    public List<MapPair> getMapAnnotationValue(int mapAnnotationIndex)
+    {
+        final MapAnnotation ma = getAnnotation(
+                MapAnnotation.class, mapAnnotationIndex);
+        final List<NamedValue> namedValues = ma.getMapValue();
+        if (namedValues == null) {
+            return null;
+        }
+        final List<MapPair> mapPairs = new ArrayList<>(namedValues.size());
+        for (final NamedValue namedValue : namedValues) {
+            mapPairs.add(new MapPair(namedValue.name, namedValue.value));
+        }
+        return mapPairs;
     }
 
     @Override

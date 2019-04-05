@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 University of Dundee & Open Microscopy Environment.
+ * Copyright (C) 2018-2019 University of Dundee & Open Microscopy Environment.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -48,6 +48,7 @@ import ome.xml.model.BooleanAnnotation;
 import ome.xml.model.CommentAnnotation;
 import ome.xml.model.DoubleAnnotation;
 import ome.xml.model.LongAnnotation;
+import ome.xml.model.MapAnnotation;
 import ome.xml.model.OME;
 import ome.xml.model.OMEModel;
 import ome.xml.model.OMEModelObject;
@@ -337,6 +338,9 @@ public class XmlAssembler implements Closeable {
                     break;
                 case "LongAnnotation":
                     annotationType = LongAnnotation.class;
+                    break;
+                case "MapAnnotation":
+                    annotationType = MapAnnotation.class;
                     break;
                 case "TagAnnotation":
                     annotationType = TagAnnotation.class;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 University of Dundee & Open Microscopy Environment.
+ * Copyright (C) 2018-2019 University of Dundee & Open Microscopy Environment.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -38,7 +38,7 @@ import com.google.common.collect.Maps;
 public class LinkMakerMetadata {
 
     private static enum AnnotationType {
-        BOOLEAN, COMMENT, DOUBLE, LONG, TAG, TERM, TIMESTAMP, XML;
+        BOOLEAN, COMMENT, DOUBLE, LONG, MAP, TAG, TERM, TIMESTAMP, XML;
     }
 
     private final IMetadata metadata;
@@ -102,6 +102,16 @@ public class LinkMakerMetadata {
                     return metadata.getLongAnnotationID(index);
                 }
             }, metadata.getLongAnnotationCount());
+        } catch (NullPointerException npe) {
+            /* count is zero so move on to next */
+        }
+        try {
+            buildMetadataIndex(annotationMap, AnnotationType.MAP, new Function<Integer, String>() {
+                @Override
+                public String apply(Integer index) {
+                    return metadata.getMapAnnotationID(index);
+                }
+            }, metadata.getMapAnnotationCount());
         } catch (NullPointerException npe) {
             /* count is zero so move on to next */
         }
@@ -237,6 +247,9 @@ public class LinkMakerMetadata {
                     case LONG:
                         lsid = metadata.getLongAnnotationID(toIndex);
                         break;
+                    case MAP:
+                        lsid = metadata.getMapAnnotationID(toIndex);
+                        break;
                     case TAG:
                         lsid = metadata.getTagAnnotationID(toIndex);
                         break;
@@ -282,6 +295,10 @@ public class LinkMakerMetadata {
                             case LONG:
                                 metadata.setLongAnnotationAnnotationRef(lsid, fromIndex,
                                         metadata.getLongAnnotationAnnotationCount(fromIndex));
+                                break;
+                            case MAP:
+                                metadata.setMapAnnotationAnnotationRef(lsid, fromIndex,
+                                        metadata.getMapAnnotationAnnotationCount(fromIndex));
                                 break;
                             case TAG:
                                 metadata.setTagAnnotationAnnotationRef(lsid, fromIndex,

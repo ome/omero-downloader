@@ -45,6 +45,8 @@ import omero.model.IObject;
  */
 abstract class MetadataBase extends DummyMetadata {
 
+    private static final MetadataRoot ROOT = new MetadataRoot() {};
+
     private final Function<IObject, String> lsids;
 
     protected MetadataBase(Function<IObject, String> lsids) {
@@ -94,7 +96,6 @@ abstract class MetadataBase extends DummyMetadata {
 
     @Override
     public MetadataRoot getRoot() {
-        return new MetadataRoot() {
-        };
+        return ROOT;
     }
 }

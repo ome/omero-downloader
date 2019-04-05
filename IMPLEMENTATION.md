@@ -38,10 +38,11 @@ group context from limiting query results. The `main` method uses:
 1. `Download.writeXmlObjects` to implement the `-f` option's
    `ome-xml-parts` with the help of `XmlGenerator`. This also makes some
    use of `LinkMakerPaths` for linking objects from their containers.
-   `MetadataBase` provides helpers for the other classes of the
-   `org.openmicroscopy.client.downloader.metadata` package which
-   `XmlGenerator` uses to fetch metadata about the various top-level
-   model objects. Those classes largely copy from OMERO.blitz's
+   `XmlGenerator` uses the concrete classes of the
+   `org.openmicroscopy.client.downloader.metadata` package to fetch the
+   metadata related to the various top-level model objects. Those
+   classes use protected methods from `MetadataBase` and largely copy
+   from OMERO.blitz's
    `OmeroMetadata` except that to support image export `ImageMetadata`
    specifies *XYCZT* dimension ordering to correspond with the ImageJ
    convention implemented by Bio-Formats' `TiffReader`. (`TileIterator`

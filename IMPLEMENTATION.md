@@ -42,11 +42,10 @@ group context from limiting query results. The `main` method uses:
    `org.openmicroscopy.client.downloader.metadata` package to fetch the
    metadata related to the various top-level model objects. Those
    classes use protected methods from `MetadataBase` and largely copy
-   from OMERO.blitz's
-   `OmeroMetadata` except that to support image export `ImageMetadata`
-   specifies *XYCZT* dimension ordering to correspond with the ImageJ
-   convention implemented by Bio-Formats' `TiffReader`. (`TileIterator`
-   adapts to the specified ordering.)
+   from OMERO.blitz's `OmeroMetadata` except that to support image
+   export `ImageMetadata` specifies *XYCZT* dimension ordering to
+   correspond with the ImageJ convention implemented by Bio-Formats'
+   `TiffReader`. (`TileIterator` adapts to the specified ordering.)
 
 1. `Download.assembleReferencedXml` to implement the `-f` option's
    `ome-xml-whole` with the help of `XmlAssembler` which uses the

@@ -24,10 +24,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 import loci.formats.meta.IMetadata;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
@@ -66,92 +66,56 @@ public class LinkMakerMetadata {
         }
         final ImmutableMap.Builder<Long, Integer> annotationMap = ImmutableMap.builder();
         try {
-            buildMetadataIndex(annotationMap, AnnotationType.BOOLEAN, new Function<Integer, String>() {
-                @Override
-                public String apply(Integer index) {
-                    return metadata.getBooleanAnnotationID(index);
-                }
-            }, metadata.getBooleanAnnotationCount());
+            buildMetadataIndex(annotationMap, AnnotationType.BOOLEAN, metadata::getBooleanAnnotationID,
+                    metadata.getBooleanAnnotationCount());
         } catch (NullPointerException npe) {
             /* count is zero so move on to next */
         }
         try {
-            buildMetadataIndex(annotationMap, AnnotationType.COMMENT, new Function<Integer, String>() {
-                @Override
-                public String apply(Integer index) {
-                    return metadata.getCommentAnnotationID(index);
-                }
-            }, metadata.getCommentAnnotationCount());
+            buildMetadataIndex(annotationMap, AnnotationType.COMMENT, metadata::getCommentAnnotationID,
+                    metadata.getCommentAnnotationCount());
         } catch (NullPointerException npe) {
             /* count is zero so move on to next */
         }
         try {
-            buildMetadataIndex(annotationMap, AnnotationType.DOUBLE, new Function<Integer, String>() {
-                @Override
-                public String apply(Integer index) {
-                    return metadata.getDoubleAnnotationID(index);
-                }
-            }, metadata.getDoubleAnnotationCount());
+            buildMetadataIndex(annotationMap, AnnotationType.DOUBLE, metadata::getDoubleAnnotationID,
+                    metadata.getDoubleAnnotationCount());
         } catch (NullPointerException npe) {
             /* count is zero so move on to next */
         }
         try {
-            buildMetadataIndex(annotationMap, AnnotationType.LONG, new Function<Integer, String>() {
-                @Override
-                public String apply(Integer index) {
-                    return metadata.getLongAnnotationID(index);
-                }
-            }, metadata.getLongAnnotationCount());
+            buildMetadataIndex(annotationMap, AnnotationType.LONG, metadata::getLongAnnotationID,
+                    metadata.getLongAnnotationCount());
         } catch (NullPointerException npe) {
             /* count is zero so move on to next */
         }
         try {
-            buildMetadataIndex(annotationMap, AnnotationType.MAP, new Function<Integer, String>() {
-                @Override
-                public String apply(Integer index) {
-                    return metadata.getMapAnnotationID(index);
-                }
-            }, metadata.getMapAnnotationCount());
+            buildMetadataIndex(annotationMap, AnnotationType.MAP, metadata::getMapAnnotationID,
+                    metadata.getMapAnnotationCount());
         } catch (NullPointerException npe) {
             /* count is zero so move on to next */
         }
         try {
-            buildMetadataIndex(annotationMap, AnnotationType.TAG, new Function<Integer, String>() {
-                @Override
-                public String apply(Integer index) {
-                    return metadata.getTagAnnotationID(index);
-                }
-            }, metadata.getTagAnnotationCount());
+            buildMetadataIndex(annotationMap, AnnotationType.TAG, metadata::getTagAnnotationID,
+                    metadata.getTagAnnotationCount());
         } catch (NullPointerException npe) {
             /* count is zero so move on to next */
         }
         try {
-            buildMetadataIndex(annotationMap, AnnotationType.TERM, new Function<Integer, String>() {
-                @Override
-                public String apply(Integer index) {
-                    return metadata.getTermAnnotationID(index);
-                }
-            }, metadata.getTermAnnotationCount());
+            buildMetadataIndex(annotationMap, AnnotationType.TERM, metadata::getTermAnnotationID,
+                    metadata.getTermAnnotationCount());
         } catch (NullPointerException npe) {
             /* count is zero so move on to next */
         }
         try {
-            buildMetadataIndex(annotationMap, AnnotationType.TIMESTAMP, new Function<Integer, String>() {
-                @Override
-                public String apply(Integer index) {
-                    return metadata.getTimestampAnnotationID(index);
-                }
-            }, metadata.getTimestampAnnotationCount());
+            buildMetadataIndex(annotationMap, AnnotationType.TIMESTAMP, metadata::getTimestampAnnotationID,
+                    metadata.getTimestampAnnotationCount());
         } catch (NullPointerException npe) {
             /* count is zero so move on to next */
         }
         try {
-            buildMetadataIndex(annotationMap, AnnotationType.XML, new Function<Integer, String>() {
-                @Override
-                public String apply(Integer index) {
-                    return metadata.getXMLAnnotationID(index);
-                }
-            }, metadata.getXMLAnnotationCount());
+            buildMetadataIndex(annotationMap, AnnotationType.XML, metadata::getXMLAnnotationID,
+                    metadata.getXMLAnnotationCount());
         } catch (NullPointerException npe) {
             /* count is zero so move on to next */
         }
@@ -163,12 +127,7 @@ public class LinkMakerMetadata {
             imageCount = 0;
         }
         indexMap.put(ModelType.IMAGE, imageCount == 0 ? Collections.<Long, Integer>emptyMap() :
-                 buildMetadataIndex(ImmutableMap.<Long, Integer>builder(), null, new Function<Integer, String>() {
-                    @Override
-                    public String apply(Integer index) {
-                        return metadata.getImageID(index);
-                    }
-                }, imageCount).build());
+                 buildMetadataIndex(ImmutableMap.<Long, Integer>builder(), null, metadata::getImageID, imageCount).build());
         int roiCount;
         try {
             roiCount = metadata.getROICount();
@@ -176,12 +135,7 @@ public class LinkMakerMetadata {
             roiCount = 0;
         }
         indexMap.put(ModelType.ROI, roiCount == 0 ? Collections.<Long, Integer>emptyMap() :
-                buildMetadataIndex(ImmutableMap.<Long, Integer>builder(), null, new Function<Integer, String>() {
-                    @Override
-                    public String apply(Integer index) {
-                        return metadata.getROIID(index);
-                    }
-                }, roiCount).build());
+                buildMetadataIndex(ImmutableMap.<Long, Integer>builder(), null, metadata::getROIID, roiCount).build());
         indices = indexMap.build();
     }
 

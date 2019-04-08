@@ -180,13 +180,6 @@ public class XmlGenerator {
     private final IQueryPrx iQuery;
     private final String format;
 
-    private final Function<IObject, String> lsidGetter = new Function<IObject, String>() {
-        @Override
-        public String apply(IObject object) {
-            return getLsid(object);
-        }
-    };
-
     /**
      * Query the parent-child relationships among model objects.
      * @param listener the listener to notify of parent-child relationships
@@ -397,7 +390,7 @@ public class XmlGenerator {
     public void writeAnnotations(List<Long> ids, MetadataStore destination) throws ServerError {
         for (final List<Long> annotationIdBatch : Lists.partition(ids, BATCH_SIZE)) {
             final List<Annotation> annotations = getAnnotations(annotationIdBatch);
-            omeXmlService.convertMetadata(new AnnotationMetadata(lsidGetter, annotations), destination);
+            omeXmlService.convertMetadata(new AnnotationMetadata(this::getLsid, annotations), destination);
         }
     }
 
@@ -410,7 +403,7 @@ public class XmlGenerator {
     public void writeImages(List<Long> ids, MetadataStore destination) throws ServerError {
         for (final List<Long> imageIdBatch : Lists.partition(ids, BATCH_SIZE)) {
             final List<Image> images = getImages(imageIdBatch);
-            omeXmlService.convertMetadata(new ImageMetadata(lsidGetter, images), destination);
+            omeXmlService.convertMetadata(new ImageMetadata(this::getLsid, images), destination);
         }
     }
 
@@ -433,7 +426,7 @@ public class XmlGenerator {
                     roiIterator.remove();
                 }
             }
-            omeXmlService.convertMetadata(new RoiMetadata(lsidGetter, rois), destination);
+            omeXmlService.convertMetadata(new RoiMetadata(this::getLsid, rois), destination);
         }
     }
 
@@ -478,8 +471,8 @@ public class XmlGenerator {
                 for (final Annotation annotation : getAnnotations(toWrite.keySet())) {
                     final OMEXMLMetadata metadata = omeXmlService.createOMEXMLMetadata();
                     metadata.createRoot();
-                    omeXmlService.convertMetadata(new AnnotationMetadata(lsidGetter, Collections.singletonList(annotation)),
-                            metadata);
+                    omeXmlService.convertMetadata(new AnnotationMetadata(XmlGenerator.this::getLsid,
+                            Collections.singletonList(annotation)), metadata);
                     final OME omeElement = (OME) metadata.getRoot();
                     final ome.xml.model.Annotation annotationElement;
                     if (annotation instanceof BooleanAnnotation) {
@@ -527,7 +520,8 @@ public class XmlGenerator {
                 for (final Image image : getImages(toWrite.keySet())) {
                     final OMEXMLMetadata metadata = omeXmlService.createOMEXMLMetadata();
                     metadata.createRoot();
-                    omeXmlService.convertMetadata(new ImageMetadata(lsidGetter, Collections.singletonList(image)), metadata);
+                    omeXmlService.convertMetadata(new ImageMetadata(XmlGenerator.this::getLsid,
+                            Collections.singletonList(image)), metadata);
                     final OME omeElement = (OME) metadata.getRoot();
                     final ome.xml.model.Image imageElement = omeElement.getImage(0);
                     final ome.xml.model.Pixels pixels = imageElement.getPixels();
@@ -564,7 +558,8 @@ public class XmlGenerator {
                     }
                     final OMEXMLMetadata xmlMeta = omeXmlService.createOMEXMLMetadata();
                     xmlMeta.createRoot();
-                    omeXmlService.convertMetadata(new RoiMetadata(lsidGetter, Collections.singletonList(roi)), xmlMeta);
+                    omeXmlService.convertMetadata(new RoiMetadata(XmlGenerator.this::getLsid,
+                            Collections.singletonList(roi)), xmlMeta);
                     final OME omeElement = (OME) xmlMeta.getRoot();
                     final ome.xml.model.ROI roiElement = omeElement.getROI(0);
                     writeElement(roiElement, toWrite.get(roi.getId().getValue()));

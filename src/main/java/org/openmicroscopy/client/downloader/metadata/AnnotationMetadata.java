@@ -21,6 +21,7 @@ package org.openmicroscopy.client.downloader.metadata;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 import ome.xml.model.MapPair;
 import ome.xml.model.primitives.Timestamp;
@@ -37,8 +38,6 @@ import omero.model.TermAnnotation;
 import omero.model.TimestampAnnotation;
 import omero.model.XmlAnnotation;
 import omero.model.IObject;
-
-import com.google.common.base.Function;
 
 import org.joda.time.Instant;
 

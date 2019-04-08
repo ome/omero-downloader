@@ -20,6 +20,7 @@
 package org.openmicroscopy.client.downloader.metadata;
 
 import java.util.List;
+import java.util.function.Function;
 
 import static ome.formats.model.UnitsFactory.convertLength;
 
@@ -43,8 +44,6 @@ import omero.model.Image;
 import omero.model.Pixels;
 import omero.model.PlaneInfo;
 import omero.model.Roi;
-
-import com.google.common.base.Function;
 
 import org.joda.time.Instant;
 

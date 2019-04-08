@@ -19,7 +19,7 @@
 
 package org.openmicroscopy.client.downloader.metadata;
 
-import com.google.common.base.Function;
+import java.util.function.Function;
 
 import loci.formats.meta.DummyMetadata;
 

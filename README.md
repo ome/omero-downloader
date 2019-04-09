@@ -104,3 +104,4 @@ All rights reserved.
 # See also
 
 - [Change Log](CHANGELOG.md)
+- [Implementation Notes](IMPLEMENTATION.md)

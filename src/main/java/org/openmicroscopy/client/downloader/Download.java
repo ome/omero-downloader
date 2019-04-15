@@ -35,6 +35,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.FileSystemException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -111,6 +114,29 @@ public class Download {
     private static final Logger LOGGER = new SimpleLogger();
     private static final Gateway GATEWAY = new Gateway(LOGGER);
     private static final Pattern TARGET_PATTERN = Pattern.compile("([A-Z][A-Za-z]*):(\\d+(,\\d+)*)");
+
+    /**
+     * A fatal condition has occurred.
+     */
+    public static final class FatalException extends RuntimeException {
+
+        private final int exitCode;
+
+        /**
+         * Construct a fatal exception for throwing.
+         * @param exitCode the exit code with which {@link #exit()} should terminate this process
+         */
+        public FatalException(int exitCode) {
+            this.exitCode = exitCode;
+        }
+
+        /**
+         * Terminate this process.
+         */
+        private void exit() {
+            System.exit(exitCode);
+        }
+    }
 
     /**
      * Maps parent-child relationships among model objects: parent to child; types and IDs.
@@ -280,7 +306,32 @@ public class Download {
         if (GATEWAY.isConnected()) {
             GATEWAY.disconnect();
         }
-        System.exit(exitCode);
+        throw new FatalException(exitCode);
+    }
+
+    /**
+     * Test if the user can make symbolic links.
+     * @return if a symbolic link can be made
+     */
+    private static boolean isCanLink() {
+        boolean isCanLink = false;
+        try {
+            final Path file1 = Files.createTempFile("OMERO.downloader-", null);
+            final Path file2 = Files.createTempFile("OMERO.downloader-", null);
+            file1.toFile().deleteOnExit();
+            Files.delete(file2);
+            try {
+                Files.createSymbolicLink(file2, file1.toAbsolutePath());
+                isCanLink = true;
+                Files.delete(file2);
+            } catch (FileSystemException fse) {
+                /* typical failure on Windows when user does not have linking privilege */
+            }
+        } catch (IOException ioe) {
+            LOGGER.fatal(ioe, "cannot manipulate temporary files");
+            abortOnFatalError(3);
+        }
+        return isCanLink;
     }
 
     /**
@@ -820,136 +871,160 @@ public class Download {
 
     /**
      * Perform the download as instructed.
+     * @param parsedOptions the parsed command-line options
+     */
+    private static void actOnOptions(OptionParser.Chosen parsedOptions) {
+        openGateway(parsedOptions);
+        setUpServices(parsedOptions.getBaseDirectory());
+
+        /* determine which objects are targeted */
+        Requests.FindChildrenBuilder finder = Requests.findChildren().childType(Image.class);
+        for (final Class<? extends IObject> classToFind : getModelClasses(parsedOptions)) {
+            finder.childType(classToFind);
+        }
+        final List<String> targetArgs = parsedOptions.getArguments();
+        if (targetArgs.isEmpty()) {
+            LOGGER.fatal(null, "no download targets specified");
+            abortOnFatalError(2);
+        }
+        for (final String target : targetArgs) {
+            final Matcher matcher = TARGET_PATTERN.matcher(target);
+            if (matcher.matches()) {
+                finder.target(matcher.group(1));
+                final Iterable<String> ids = Splitter.on(',').split(matcher.group(2));
+                for (final String id : ids) {
+                    finder.id(Long.parseLong(id));
+                }
+            } else {
+                System.err.println("cannot parse Target:ids argument: " + target);
+                abortOnFatalError(2);
+            }
+        }
+
+        /* find the images and other objects for those targets */
+        Set<Long> imageIds;
+        FoundChildren found = requests.submit("finding target images", finder.build(), FoundChildren.class);
+        if (found.children.containsKey(ome.model.core.Image.class.getName())) {
+            imageIds = ImmutableSet.copyOf(found.children.get(ome.model.core.Image.class.getName()));
+        } else {
+            imageIds = Collections.emptySet();
+        }
+
+        /* process filesets */
+        FileMapper fileMapper = null;
+        if (!imageIds.isEmpty()) {
+            fileMapper = new FileMapper(iQuery, paths, imageIds);
+            if (parsedOptions.isAllFileset()) {
+                final Set<Long> newImageIds = fileMapper.completeFilesets(imageIds);
+                if (!newImageIds.equals(imageIds)) {
+                    finder.target(Image.class).id(newImageIds);
+                    found = requests.submit("finding target images", finder.build(), FoundChildren.class);
+                    imageIds = ImmutableSet.copyOf(found.children.get(ome.model.core.Image.class.getName()));
+                }
+            }
+        }
+
+        /* organize all the targeted objects by model type */
+        final SetMultimap<ModelType, Long> toWrite = HashMultimap.create();
+        for (final Map.Entry<String, List<Long>> childrenOneType : found.children.entrySet()) {
+            final String typeName = childrenOneType.getKey();
+            final List<Long> ids = childrenOneType.getValue();
+            final String blitzName = "omero.model." + typeName.substring(typeName.lastIndexOf('.') + 1);
+            Class<? extends IObject> modelObjectClass = null;
+            try {
+                modelObjectClass = Class.forName(blitzName).asSubclass(IObject.class);
+            } catch (ClassNotFoundException cnfe) {
+                LOGGER.fatal(cnfe, "failed to process model object class: " + typeName);
+                abortOnFatalError(3);
+            }
+            try {
+                final ModelType modelType = ModelType.getEnumValueFor(modelObjectClass);
+                toWrite.putAll(modelType, ids);
+            } catch (IllegalArgumentException iae) {
+                LOGGER.fatal(iae, "failed to process model object class: " + modelObjectClass);
+                abortOnFatalError(3);
+            }
+        }
+
+        /* map parent-child relationships */
+        Map<Map.Entry<ModelType, ModelType>, SetMultimap<Long, Long>> containment = null;
+        try {
+            containment = new ParentChildMap(toWrite.keySet()).buildFromDB(toWrite).containment;
+        } catch (ServerError se) {
+            LOGGER.fatal(se, "cannot use query service");
+            abortOnFatalError(3);
+        }
+
+        /* write the requested files */
+        if (!imageIds.isEmpty()) {
+            if (parsedOptions.isFileType("binary") || parsedOptions.isFileType("companion")) {
+                /* check if -l option setting is viable */
+                boolean isLinkFilesets = parsedOptions.isLinkType("fileset");
+                boolean isLinkImages = parsedOptions.isLinkType("image");
+                if ((isLinkFilesets || isLinkImages) && !isCanLink()) {
+                    isLinkFilesets = false;
+                    isLinkImages = false;
+                    System.out.println("setting '-l none' because links cannot be created");
+                }
+                /* download the image files from the remote repository */
+                downloadFiles(fileMapper, imageIds, parsedOptions.isFileType("binary"), parsedOptions.isFileType("companion"),
+                        isLinkFilesets, isLinkImages);
+            }
+            if (parsedOptions.isFileType("tiff") || parsedOptions.isFileType("ome-tiff")) {
+                /* export the images via Bio-Formats */
+                exportImages(fileMapper, containment, imageIds,
+                        parsedOptions.isFileType("tiff"), parsedOptions.isFileType("ome-tiff"));
+            }
+        }
+
+        /* write the requested metadata */
+        if (!parsedOptions.isObjectType("image")) {
+            toWrite.removeAll(ModelType.IMAGE);
+        }
+        if (!toWrite.isEmpty() && (parsedOptions.isFileType("ome-xml") || parsedOptions.isFileType("ome-xml-parts"))) {
+            /* write model objects split into separate XML files using symbolic links to show cross-references */
+            writeXmlObjects(containment, toWrite);
+        }
+
+        /* all done with the server */
+        GATEWAY.disconnect();
+
+        if (!toWrite.isEmpty() && (parsedOptions.isFileType("ome-xml") || parsedOptions.isFileType("ome-xml-whole"))) {
+            /* assemble model objects from separate XML files into one XML file with Ref elements */
+            assembleReferencedXml(toWrite);
+        }
+    }
+
+    /**
+     * Perform the download as instructed.
      * @param argv the command-line options
      */
     public static void main(String argv[]) {
         DebugTools.enableLogging("ERROR");
 
-        /* parse and validate the command-line options and connect to the OMERO server */
-        OptionParser.Chosen parsedOptions = null;
         try {
-            parsedOptions = OptionParser.parse(argv);
-        } catch (IllegalArgumentException iae) {
-            System.err.println(iae.getLocalizedMessage());
-            LOGGER.fatal(iae, "failed to parse options");
-            abortOnFatalError(2);
-        }
-
-        try {
-            openGateway(parsedOptions);
-            setUpServices(parsedOptions.getBaseDirectory());
-
-            /* determine which objects are targeted */
-            Requests.FindChildrenBuilder finder = Requests.findChildren().childType(Image.class);
-            for (final Class<? extends IObject> classToFind : getModelClasses(parsedOptions)) {
-                finder.childType(classToFind);
-            }
-            final List<String> targetArgs = parsedOptions.getArguments();
-            if (targetArgs.isEmpty()) {
-                LOGGER.fatal(null, "no download targets specified");
+            /* parse and validate the command-line options and connect to the OMERO server */
+            OptionParser.Chosen parsedOptions = null;
+            try {
+                parsedOptions = OptionParser.parse(argv);
+            } catch (IllegalArgumentException iae) {
+                System.err.println(iae.getLocalizedMessage());
+                LOGGER.fatal(iae, "failed to parse options");
                 abortOnFatalError(2);
             }
-            for (final String target : targetArgs) {
-                final Matcher matcher = TARGET_PATTERN.matcher(target);
-                if (matcher.matches()) {
-                    finder.target(matcher.group(1));
-                    final Iterable<String> ids = Splitter.on(',').split(matcher.group(2));
-                    for (final String id : ids) {
-                        finder.id(Long.parseLong(id));
-                    }
-                } else {
-                    System.err.println("cannot parse Target:ids argument: " + target);
-                    abortOnFatalError(2);
-                }
-            }
 
-            /* find the images and other objects for those targets */
-            Set<Long> imageIds;
-            FoundChildren found = requests.submit("finding target images", finder.build(), FoundChildren.class);
-            if (found.children.containsKey(ome.model.core.Image.class.getName())) {
-                imageIds = ImmutableSet.copyOf(found.children.get(ome.model.core.Image.class.getName()));
-            } else {
-                imageIds = Collections.emptySet();
-            }
-
-            /* process filesets */
-            FileMapper fileMapper = null;
-            if (!imageIds.isEmpty()) {
-                fileMapper = new FileMapper(iQuery, paths, imageIds);
-                if (parsedOptions.isAllFileset()) {
-                    final Set<Long> newImageIds = fileMapper.completeFilesets(imageIds);
-                    if (!newImageIds.equals(imageIds)) {
-                        finder.target(Image.class).id(newImageIds);
-                        found = requests.submit("finding target images", finder.build(), FoundChildren.class);
-                        imageIds = ImmutableSet.copyOf(found.children.get(ome.model.core.Image.class.getName()));
-                    }
-                }
-            }
-
-            /* organize all the targeted objects by model type */
-            final SetMultimap<ModelType, Long> toWrite = HashMultimap.create();
-            for (final Map.Entry<String, List<Long>> childrenOneType : found.children.entrySet()) {
-                final String typeName = childrenOneType.getKey();
-                final List<Long> ids = childrenOneType.getValue();
-                final String blitzName = "omero.model." + typeName.substring(typeName.lastIndexOf('.') + 1);
-                Class<? extends IObject> modelObjectClass = null;
-                try {
-                    modelObjectClass = Class.forName(blitzName).asSubclass(IObject.class);
-                } catch (ClassNotFoundException cnfe) {
-                    LOGGER.fatal(cnfe, "failed to process model object class: " + typeName);
-                    abortOnFatalError(3);
-                }
-                try {
-                    final ModelType modelType = ModelType.getEnumValueFor(modelObjectClass);
-                    toWrite.putAll(modelType, ids);
-                } catch (IllegalArgumentException iae) {
-                    LOGGER.fatal(iae, "failed to process model object class: " + modelObjectClass);
-                    abortOnFatalError(3);
-                }
-            }
-
-            /* map parent-child relationships */
-            Map<Map.Entry<ModelType, ModelType>, SetMultimap<Long, Long>> containment = null;
             try {
-                containment = new ParentChildMap(toWrite.keySet()).buildFromDB(toWrite).containment;
-            } catch (ServerError se) {
-                LOGGER.fatal(se, "cannot use query service");
-                abortOnFatalError(3);
-            }
-
-            /* write the requested files */
-            if (!imageIds.isEmpty()) {
-                if (parsedOptions.isFileType("binary") || parsedOptions.isFileType("companion")) {
-                    /* download the image files from the remote repository */
-                    downloadFiles(fileMapper, imageIds, parsedOptions.isFileType("binary"), parsedOptions.isFileType("companion"),
-                            parsedOptions.isLinkType("fileset"), parsedOptions.isLinkType("image"));
-                }
-                if (parsedOptions.isFileType("tiff") || parsedOptions.isFileType("ome-tiff")) {
-                    /* export the images via Bio-Formats */
-                    exportImages(fileMapper, containment, imageIds,
-                            parsedOptions.isFileType("tiff"), parsedOptions.isFileType("ome-tiff"));
+                actOnOptions(parsedOptions);
+            } catch (Throwable t) {
+                if (t instanceof FatalException) {
+                    throw t;
+                } else {
+                    LOGGER.fatal(t, "caught unexpected exception: " + t);
+                    abortOnFatalError(4);
                 }
             }
-
-            /* write the requested metadata */
-            if (!parsedOptions.isObjectType("image")) {
-                toWrite.removeAll(ModelType.IMAGE);
-            }
-            if (!toWrite.isEmpty() && (parsedOptions.isFileType("ome-xml") || parsedOptions.isFileType("ome-xml-parts"))) {
-                /* write model objects split into separate XML files using symbolic links to show cross-references */
-                writeXmlObjects(containment, toWrite);
-            }
-
-            /* all done with the server */
-            GATEWAY.disconnect();
-
-            if (!toWrite.isEmpty() && (parsedOptions.isFileType("ome-xml") || parsedOptions.isFileType("ome-xml-whole"))) {
-                /* assemble model objects from separate XML files into one XML file with Ref elements */
-                assembleReferencedXml(toWrite);
-            }
-        } catch (Throwable t) {
-            LOGGER.fatal(t, "caught unexpected exception: " + t);
-            abortOnFatalError(4);
+        } catch (FatalException fe) {
+            fe.exit();
         }
     }
 }

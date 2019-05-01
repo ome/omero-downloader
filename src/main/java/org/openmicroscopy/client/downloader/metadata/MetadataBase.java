@@ -19,7 +19,7 @@
 
 package org.openmicroscopy.client.downloader.metadata;
 
-import com.google.common.base.Function;
+import java.util.function.Function;
 
 import loci.formats.meta.DummyMetadata;
 
@@ -44,6 +44,8 @@ import omero.model.IObject;
  * @author Curtis Rueden ctrueden at wisc.edu
  */
 abstract class MetadataBase extends DummyMetadata {
+
+    private static final MetadataRoot ROOT = new MetadataRoot() {};
 
     private final Function<IObject, String> lsids;
 
@@ -94,7 +96,6 @@ abstract class MetadataBase extends DummyMetadata {
 
     @Override
     public MetadataRoot getRoot() {
-        return new MetadataRoot() {
-        };
+        return ROOT;
     }
 }

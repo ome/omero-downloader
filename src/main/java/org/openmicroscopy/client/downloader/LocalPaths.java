@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 University of Dundee & Open Microscopy Environment.
+ * Copyright (C) 2016-2019 University of Dundee & Open Microscopy Environment.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -37,12 +37,7 @@ import com.google.common.collect.ImmutableMap;
  */
 public class LocalPaths {
 
-    private static final FileFilter IS_DIRECTORY = new FileFilter() {
-        @Override
-        public boolean accept(File file) {
-            return file.isDirectory();
-        }
-    };
+    private static final FileFilter IS_DIRECTORY = File::isDirectory;
 
     private static final Function<String, String> SANITIZER = new MakePathComponentSafe(
             FilePathRestrictionInstance.getFilePathRestrictions(FilePathRestrictionInstance.LOCAL_REQUIRED));

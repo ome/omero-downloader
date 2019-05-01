@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 University of Dundee & Open Microscopy Environment.
+ * Copyright (C) 2016-2019 University of Dundee & Open Microscopy Environment.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -19,7 +19,6 @@
 
 package org.openmicroscopy.client.downloader;
 
-import com.google.common.base.Function;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -41,6 +40,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -70,6 +70,7 @@ import omero.model.DoubleAnnotation;
 import omero.model.IObject;
 import omero.model.Image;
 import omero.model.LongAnnotation;
+import omero.model.MapAnnotation;
 import omero.model.Mask;
 import omero.model.Roi;
 import omero.model.Shape;
@@ -178,13 +179,6 @@ public class XmlGenerator {
     private final OMEXMLService omeXmlService;
     private final IQueryPrx iQuery;
     private final String format;
-
-    private final Function<IObject, String> lsidGetter = new Function<IObject, String>() {
-        @Override
-        public String apply(IObject object) {
-            return getLsid(object);
-        }
-    };
 
     /**
      * Query the parent-child relationships among model objects.
@@ -396,7 +390,7 @@ public class XmlGenerator {
     public void writeAnnotations(List<Long> ids, MetadataStore destination) throws ServerError {
         for (final List<Long> annotationIdBatch : Lists.partition(ids, BATCH_SIZE)) {
             final List<Annotation> annotations = getAnnotations(annotationIdBatch);
-            omeXmlService.convertMetadata(new AnnotationMetadata(lsidGetter, annotations), destination);
+            omeXmlService.convertMetadata(new AnnotationMetadata(this::getLsid, annotations), destination);
         }
     }
 
@@ -409,7 +403,7 @@ public class XmlGenerator {
     public void writeImages(List<Long> ids, MetadataStore destination) throws ServerError {
         for (final List<Long> imageIdBatch : Lists.partition(ids, BATCH_SIZE)) {
             final List<Image> images = getImages(imageIdBatch);
-            omeXmlService.convertMetadata(new ImageMetadata(lsidGetter, images), destination);
+            omeXmlService.convertMetadata(new ImageMetadata(this::getLsid, images), destination);
         }
     }
 
@@ -432,7 +426,7 @@ public class XmlGenerator {
                     roiIterator.remove();
                 }
             }
-            omeXmlService.convertMetadata(new RoiMetadata(lsidGetter, rois), destination);
+            omeXmlService.convertMetadata(new RoiMetadata(this::getLsid, rois), destination);
         }
     }
 
@@ -477,8 +471,8 @@ public class XmlGenerator {
                 for (final Annotation annotation : getAnnotations(toWrite.keySet())) {
                     final OMEXMLMetadata metadata = omeXmlService.createOMEXMLMetadata();
                     metadata.createRoot();
-                    omeXmlService.convertMetadata(new AnnotationMetadata(lsidGetter, Collections.singletonList(annotation)),
-                            metadata);
+                    omeXmlService.convertMetadata(new AnnotationMetadata(XmlGenerator.this::getLsid,
+                            Collections.singletonList(annotation)), metadata);
                     final OME omeElement = (OME) metadata.getRoot();
                     final ome.xml.model.Annotation annotationElement;
                     if (annotation instanceof BooleanAnnotation) {
@@ -489,6 +483,8 @@ public class XmlGenerator {
                         annotationElement = omeElement.getStructuredAnnotations().getDoubleAnnotation(0);
                     } else if (annotation instanceof LongAnnotation) {
                         annotationElement = omeElement.getStructuredAnnotations().getLongAnnotation(0);
+                    } else if (annotation instanceof MapAnnotation) {
+                        annotationElement = omeElement.getStructuredAnnotations().getMapAnnotation(0);
                     } else if (annotation instanceof TagAnnotation) {
                         annotationElement = omeElement.getStructuredAnnotations().getTagAnnotation(0);
                     } else if (annotation instanceof TermAnnotation) {
@@ -524,7 +520,8 @@ public class XmlGenerator {
                 for (final Image image : getImages(toWrite.keySet())) {
                     final OMEXMLMetadata metadata = omeXmlService.createOMEXMLMetadata();
                     metadata.createRoot();
-                    omeXmlService.convertMetadata(new ImageMetadata(lsidGetter, Collections.singletonList(image)), metadata);
+                    omeXmlService.convertMetadata(new ImageMetadata(XmlGenerator.this::getLsid,
+                            Collections.singletonList(image)), metadata);
                     final OME omeElement = (OME) metadata.getRoot();
                     final ome.xml.model.Image imageElement = omeElement.getImage(0);
                     final ome.xml.model.Pixels pixels = imageElement.getPixels();
@@ -561,7 +558,8 @@ public class XmlGenerator {
                     }
                     final OMEXMLMetadata xmlMeta = omeXmlService.createOMEXMLMetadata();
                     xmlMeta.createRoot();
-                    omeXmlService.convertMetadata(new RoiMetadata(lsidGetter, Collections.singletonList(roi)), xmlMeta);
+                    omeXmlService.convertMetadata(new RoiMetadata(XmlGenerator.this::getLsid,
+                            Collections.singletonList(roi)), xmlMeta);
                     final OME omeElement = (OME) xmlMeta.getRoot();
                     final ome.xml.model.ROI roiElement = omeElement.getROI(0);
                     writeElement(roiElement, toWrite.get(roi.getId().getValue()));

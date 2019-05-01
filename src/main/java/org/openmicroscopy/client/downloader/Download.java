@@ -19,7 +19,6 @@
 
 package org.openmicroscopy.client.downloader;
 
-import com.google.common.base.Function;
 import com.google.common.base.Splitter;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -47,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -693,7 +693,6 @@ public class Download {
                         }
                         writer.setCompression(TiffWriter.COMPRESSION_ZLIB);
                         writer.setMetadataRetrieve(metadata);
-                        writer.setWriteSequentially(true);
                         writer.setId(tiffFile.getPath());
                         localPixels.writeTiles(writer);
                     }
@@ -715,33 +714,24 @@ public class Download {
     private static void writeXmlObjects(Map<Map.Entry<ModelType, ModelType>, SetMultimap<Long, Long>> containment,
             final SetMultimap<ModelType, Long> objects) {
         if (objects.containsKey(ModelType.ANNOTATION)) {
-            xmlGenerator.writeAnnotations(ImmutableList.copyOf(objects.get(ModelType.ANNOTATION)), new Function<Long, File>() {
-                @Override
-                public File apply(Long id) {
-                    final File file = paths.getMetadataFile(ModelType.ANNOTATION, id);
-                    file.getParentFile().mkdirs();
-                    return file;
-                }
+            xmlGenerator.writeAnnotations(ImmutableList.copyOf(objects.get(ModelType.ANNOTATION)), (Long id) -> {
+                final File file = paths.getMetadataFile(ModelType.ANNOTATION, id);
+                file.getParentFile().mkdirs();
+                return file;
             });
         }
         if (objects.containsKey(ModelType.IMAGE)) {
-            xmlGenerator.writeImages(ImmutableList.copyOf(objects.get(ModelType.IMAGE)), new Function<Long, File>() {
-                @Override
-                public File apply(Long id) {
-                    final File file = paths.getMetadataFile(ModelType.IMAGE, id);
-                    file.getParentFile().mkdirs();
-                    return file;
-                }
+            xmlGenerator.writeImages(ImmutableList.copyOf(objects.get(ModelType.IMAGE)), (Long id) -> {
+                final File file = paths.getMetadataFile(ModelType.IMAGE, id);
+                file.getParentFile().mkdirs();
+                return file;
             });
         }
         if (objects.containsKey(ModelType.ROI)) {
-            xmlGenerator.writeRois(ImmutableList.copyOf(objects.get(ModelType.ROI)), new Function<Long, File>() {
-                @Override
-                public File apply(Long id) {
-                    final File file = paths.getMetadataFile(ModelType.ROI, id);
-                    file.getParentFile().mkdirs();
-                    return file;
-                }
+            xmlGenerator.writeRois(ImmutableList.copyOf(objects.get(ModelType.ROI)), (Long id) -> {
+                final File file = paths.getMetadataFile(ModelType.ROI, id);
+                file.getParentFile().mkdirs();
+                return file;
             });
         }
         try {
@@ -783,12 +773,8 @@ public class Download {
         /* map parent-child relationships */
         final Map<Map.Entry<ModelType, ModelType>, SetMultimap<Long, Long>> containment =
                 new ParentChildMap(objects.keySet()).buildFromFS().containment;
-        final Function<Map.Entry<ModelType, Long>, File> metadataFiles = new Function<Map.Entry<ModelType, Long>, File>() {
-            @Override
-            public File apply(Map.Entry<ModelType, Long> input) {
-                return paths.getMetadataFile(input.getKey(), input.getValue());
-            }
-        };
+        final Function<Map.Entry<ModelType, Long>, File> metadataFiles = (Map.Entry<ModelType, Long> input) ->
+                paths.getMetadataFile(input.getKey(), input.getValue());
         try {
             if (objects.containsKey(ModelType.IMAGE)) {
                 final Set<Long> imageIds = objects.get(ModelType.IMAGE);

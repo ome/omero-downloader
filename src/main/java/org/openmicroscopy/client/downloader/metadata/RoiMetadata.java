@@ -20,6 +20,7 @@
 package org.openmicroscopy.client.downloader.metadata;
 
 import java.util.List;
+import java.util.function.Function;
 
 import ome.formats.model.UnitsFactory;
 import ome.units.quantity.Length;
@@ -44,8 +45,6 @@ import omero.model.Polyline;
 import omero.model.Rectangle;
 import omero.model.Roi;
 import omero.model.Shape;
-
-import com.google.common.base.Function;
 
 /**
  * An instance of {@link loci.formats.meta.MetadataRetrieve} that provides metadata about OMERO ROIs.

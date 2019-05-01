@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 University of Dundee & Open Microscopy Environment.
+ * Copyright (C) 2018-2019 University of Dundee & Open Microscopy Environment.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -30,6 +30,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -48,6 +49,7 @@ import ome.xml.model.BooleanAnnotation;
 import ome.xml.model.CommentAnnotation;
 import ome.xml.model.DoubleAnnotation;
 import ome.xml.model.LongAnnotation;
+import ome.xml.model.MapAnnotation;
 import ome.xml.model.OME;
 import ome.xml.model.OMEModel;
 import ome.xml.model.OMEModelObject;
@@ -62,7 +64,7 @@ import ome.xml.model.enums.EnumerationException;
 import omero.log.Logger;
 import omero.log.SimpleLogger;
 
-import com.google.common.base.Function;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
 
@@ -160,6 +162,22 @@ public class XmlAssembler implements Closeable {
     private static final String OME_XML_CREATOR = "OMERO.downloader";
 
     private static final OMEModel STATELESS_MODEL = new StatelessModel();
+
+    private static final Map<String, Class<? extends Annotation>> ANNOTATION_TYPES;
+
+    static {
+        final ImmutableMap.Builder<String, Class<? extends Annotation>> map = ImmutableMap.builder();
+        map.put("BooleanAnnotation", BooleanAnnotation.class);
+        map.put("CommentAnnotation", CommentAnnotation.class);
+        map.put("DoubleAnnotation", DoubleAnnotation.class);
+        map.put("LongAnnotation", LongAnnotation.class);
+        map.put("MapAnnotation", MapAnnotation.class);
+        map.put("TagAnnotation", TagAnnotation.class);
+        map.put("TermAnnotation", TermAnnotation.class);
+        map.put("TimestampAnnotation", TimestampAnnotation.class);
+        map.put("XMLAnnotation", XMLAnnotation.class);
+        ANNOTATION_TYPES = map.build();
+    }
 
     private static final OME OME_OBJECT;
 
@@ -325,33 +343,9 @@ public class XmlAssembler implements Closeable {
                     Download.abortOnFatalError(3);
                 }
             }
-            switch (element.getNodeName()) {
-                case "BooleanAnnotation":
-                    annotationType = BooleanAnnotation.class;
-                    break;
-                case "CommentAnnotation":
-                    annotationType = CommentAnnotation.class;
-                    break;
-                case "DoubleAnnotation":
-                    annotationType = DoubleAnnotation.class;
-                    break;
-                case "LongAnnotation":
-                    annotationType = LongAnnotation.class;
-                    break;
-                case "TagAnnotation":
-                    annotationType = TagAnnotation.class;
-                    break;
-                case "TermAnnotation":
-                    annotationType = TermAnnotation.class;
-                    break;
-                case "TimestampAnnotation":
-                    annotationType = TimestampAnnotation.class;
-                    break;
-                case "XMLAnnotation":
-                    annotationType = XMLAnnotation.class;
-                    break;
-                default:
-                    throw new IllegalArgumentException("annotation " + id + " has element " + element);
+            annotationType = ANNOTATION_TYPES.get(element.getNodeName());
+            if (annotationType == null) {
+                throw new IllegalArgumentException("annotation " + id + " has element " + element);
             }
             annotationTypes.put(id, annotationType);
         }
@@ -361,7 +355,6 @@ public class XmlAssembler implements Closeable {
             LOGGER.fatal(roe, "cannot instantiate " + annotationType);
             Download.abortOnFatalError(3);
             return null;
-
         }
     }
 

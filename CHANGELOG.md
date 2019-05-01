@@ -1,3 +1,14 @@
+# 0.1.5 (May 2019)
+
+- Automatically adapt to inability to create symbolic links.
+  (PR [\#16](https://github.com/ome/omero-downloader/pull/16))
+- Unset `writeSequentially` to address pixel data corruption in TIFF
+  export. (Issue
+  [\#17](https://github.com/ome/omero-downloader/issues/17))
+- Include map annotations in metadata export.
+  (PR [\#18](https://github.com/ome/omero-downloader/pull/18))
+
+
 # 0.1.4 (Feburary 2019)
 
 TIFF export:

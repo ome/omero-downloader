@@ -1,3 +1,9 @@
+# 0.2.0 (July 2019)
+
+Work against OMERO 5.5 servers.
+(PR [\#22](https://github.com/ome/omero-downloader/pull/22))
+
+
 # 0.1.5 (May 2019)
 
 - Automatically adapt to inability to create symbolic links.

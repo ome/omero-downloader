@@ -56,8 +56,12 @@ showinf -autoscale `realpath /tmp/repo/Image/123/Binary/myimage`
 
 # Exporting images with metadata
 
-The `-f` option supports `ome-tiff`, `ome-xml` and `tiff` to export
-images in a different format.
+The `-f` option supports `ome-tiff`, `ome-xml` and `tiff` to
+convert the data from original files into different formats.
+
+These files are generated from binary files and other
+metadata stored in OMERO, so this process may be slower than
+downloading.
 
 OME-TIFF includes pixel data, aquisition metadata and annotations.
 OME-XML does not include pixel data and TIFF is images only.

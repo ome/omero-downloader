@@ -8,6 +8,9 @@ The `-h` option prints a brief summary of command-line options.
 
 Binaries can be downloaded from the `releases` page.
 
+NB: Use OMERO.downloader `0.1.5` to work with OMERO.server `5.4.x`.
+Use OMERO.downloader `0.2.x` to work with OMERO.server `5.5.x`.
+
 For development, from the source repository `mvn` builds and packages the downloader.
 
 

@@ -1,9 +1,20 @@
 # Summary
 
-An OMERO client for downloading data in bulk from the server. The `-h`
-option prints a brief summary of command-line options.
+An OMERO client for downloading data in bulk from an OMERO.server.
+The `-h` option prints a brief summary of command-line options.
 
-From the source repository `mvn` builds and packages the downloader.
+
+# Install
+
+Binaries can be downloaded from the `releases` page.
+
+For development, from the source repository `mvn` builds and packages the downloader.
+
+
+# User Guide
+
+In addition to the instructions below, you can find a user-guide at
+https://omero-guides.readthedocs.io/en/latest/download/docs/download.html#image-export-using-omero-downloader-demo-only
 
 
 # Caveat
@@ -15,7 +26,7 @@ early state there are use cases for which it offers significant help.
 
 # Storing downloads locally
 
-For testing, make a new scratch directory, say `/tmp/repo/`, to specify
+Make a new scratch directory, say `/tmp/repo/`, to specify
 to the `-b` option below. In general one should use a separate download
 directory for each OMERO server from which one fetches data.
 
@@ -43,28 +54,34 @@ showinf -autoscale `realpath /tmp/repo/Image/123/Binary/myimage`
 ```
 
 
-# Targeting multiple images
+# Exporting images with metadata
 
-Instead of using `Image` as a target, containers such as dataset or
-screens may be specified to target all their images. However, note that
-for plates the default server configuration disables file download.
+The `-f` option supports `ome-tiff`, `ome-xml` and `tiff` to export
+images in a different format.
 
-Additionally, specifying `-a` extends the targeted images to include all
-that are in the same fileset as any targeted image.
+OME-TIFF includes pixel data, aquisition metadata and annotations.
+OME-XML does not include pixel data and TIFF is images only.
 
-
-# Exporting images
-
-A workaround to not being able to download plates is to instead export
-their images as TIFF. The `-f` option supports `tiff` and `ome-tiff`.
+The `tiff` option provides a workaround to not being able to download
+plates (see below).
 
 Big images can be exported. Repeating an export resumes any interrupted
 image tile downloads and skips images that were already exported.
 
 The metadata included in OME-TIFF export currently includes that of the
-images, ROIs, and some of the simple kinds of annotation on either of
+Images, ROIs, and some of the simple kinds of annotation on either of
 those. This can be limited with the `-x` option if less metadata is
 desired.
+
+
+# Targeting multiple images
+
+Instead of using `Image` as a target, containers such as `Project`, `Dataset` or
+`Screen` may be specified to target all their Images. However, note that
+for Plates the default server configuration disables file download.
+
+Additionally, specifying `-a` extends the targeted images to include all
+that are in the same fileset as any targeted image.
 
 
 # Fetching metadata only

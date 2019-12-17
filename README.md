@@ -66,7 +66,7 @@ These files are generated from binary files and other
 metadata stored in OMERO, so this process may be slower than
 downloading.
 
-OME-TIFF includes pixel data, aquisition metadata and annotations.
+OME-TIFF includes pixel data, acquisition metadata and annotations.
 OME-XML does not include pixel data and TIFF is images only.
 
 The `tiff` option provides a workaround to not being able to download

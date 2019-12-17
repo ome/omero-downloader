@@ -16,8 +16,9 @@ For development, from the source repository `mvn` builds and packages the downlo
 
 # User Guide
 
-In addition to the instructions below, you can find a user-guide at
-https://omero-guides.readthedocs.io/en/latest/download/docs/download.html#image-export-using-omero-downloader-demo-only
+In addition to the instructions below, OMERO downloader is described the
+[download section](https://omero-guides.readthedocs.io/en/latest/download/docs/download.html)
+of the OMERO user guide.
 
 
 # Caveat
@@ -29,8 +30,8 @@ early state there are use cases for which it offers significant help.
 
 # Storing downloads locally
 
-Make a new scratch directory, say `/tmp/repo/`, to specify
-to the `-b` option below. In general one should use a separate download
+Choose or create a target directory for download. This is used in
+the `-b` option below. In general one should use a separate download
 directory for each OMERO server from which one fetches data.
 
 

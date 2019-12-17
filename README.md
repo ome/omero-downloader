@@ -6,7 +6,8 @@ The `-h` option prints a brief summary of command-line options.
 
 # Install
 
-Binaries can be downloaded from the `releases` page.
+Binaries can be downloaded from the
+[releases](https://github.com/ome/omero-downloader/releases) page.
 
 NB: Use OMERO.downloader `0.1.5` to work with OMERO.server `5.4.x`.
 Use OMERO.downloader `0.2.x` to work with OMERO.server `5.5.x`.
@@ -68,10 +69,8 @@ metadata stored in OMERO, so this process may be slower than
 downloading.
 
 OME-TIFF includes pixel data, acquisition metadata and annotations.
-OME-XML does not include pixel data and TIFF does not include metadata.
-
-The `tiff` option provides a workaround to not being able to download
-plates (see below).
+OME-XML does not include pixel data and TIFF is images only
+(does not include metadata).
 
 Big images can be exported. Repeating an export resumes any interrupted
 image tile downloads and skips images that were already exported.
@@ -85,8 +84,11 @@ desired.
 # Targeting multiple images
 
 Instead of using `Image` as a target, containers such as `Project`, `Dataset` or
-`Screen` may be specified to target all their Images. However, note that
-for Plates the default server configuration disables file download.
+`Screen` may be specified to target all their Images.
+
+Note that the [default server configuration](https://docs.openmicroscopy.org/latest/omero/sysadmins/config.html#omero-policy-binary-access) disables download of original files
+for Screen/Plate data. In this case the `-f tiff` option can be used as a workaround
+to allow export of Images as TIFFs.
 
 Additionally, specifying `-a` extends the targeted images to include all
 that are in the same fileset as any targeted image.

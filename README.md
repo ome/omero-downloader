@@ -1,9 +1,25 @@
 # Summary
 
-An OMERO client for downloading data in bulk from the server. The `-h`
-option prints a brief summary of command-line options.
+An OMERO client for downloading data in bulk from an OMERO.server.
+The `-h` option prints a brief summary of command-line options.
 
-From the source repository `mvn` builds and packages the downloader.
+
+# Install
+
+Binaries can be downloaded from the
+[releases](https://github.com/ome/omero-downloader/releases) page.
+
+NB: Use OMERO.downloader `0.1.5` to work with OMERO.server `5.4.x`.
+Use OMERO.downloader `0.2.x` to work with OMERO.server `5.5.x`.
+
+For development, from the source repository `mvn` builds and packages the downloader.
+
+
+# User Guide
+
+In addition to the instructions below, OMERO downloader is described the
+[download section](https://omero-guides.readthedocs.io/en/latest/download/docs/download.html)
+of the OMERO user guide.
 
 
 # Caveat
@@ -15,8 +31,8 @@ early state there are use cases for which it offers significant help.
 
 # Storing downloads locally
 
-For testing, make a new scratch directory, say `/tmp/repo/`, to specify
-to the `-b` option below. In general one should use a separate download
+Choose or create a target directory for download. This is used in
+the `-b` option below. In general one should use a separate download
 directory for each OMERO server from which one fetches data.
 
 
@@ -43,28 +59,39 @@ showinf -autoscale `realpath /tmp/repo/Image/123/Binary/myimage`
 ```
 
 
-# Targeting multiple images
+# Exporting images with metadata
 
-Instead of using `Image` as a target, containers such as dataset or
-screens may be specified to target all their images. However, note that
-for plates the default server configuration disables file download.
+The `-f` option supports `ome-tiff`, `ome-xml` and `tiff` to
+convert the data from original files into different formats.
 
-Additionally, specifying `-a` extends the targeted images to include all
-that are in the same fileset as any targeted image.
+These files are generated from binary files and other
+metadata stored in OMERO, so this process may be slower than
+downloading.
 
-
-# Exporting images
-
-A workaround to not being able to download plates is to instead export
-their images as TIFF. The `-f` option supports `tiff` and `ome-tiff`.
+OME-TIFF includes pixel data, acquisition metadata and annotations.
+OME-XML does not include pixel data and TIFF is images only
+(does not include metadata).
 
 Big images can be exported. Repeating an export resumes any interrupted
 image tile downloads and skips images that were already exported.
 
 The metadata included in OME-TIFF export currently includes that of the
-images, ROIs, and some of the simple kinds of annotation on either of
+Images, ROIs, and some of the simple kinds of annotation on either of
 those. This can be limited with the `-x` option if less metadata is
 desired.
+
+
+# Targeting multiple images
+
+Instead of using `Image` as a target, containers such as `Project`, `Dataset` or
+`Screen` may be specified to target all their Images.
+
+Note that the [default server configuration](https://docs.openmicroscopy.org/latest/omero/sysadmins/config.html#omero-policy-binary-access) disables download of original files
+for Screen/Plate data. In this case the `-f tiff` option can be used as a workaround
+to allow export of Images as TIFFs.
+
+Additionally, specifying `-a` extends the targeted images to include all
+that are in the same fileset as any targeted image.
 
 
 # Fetching metadata only

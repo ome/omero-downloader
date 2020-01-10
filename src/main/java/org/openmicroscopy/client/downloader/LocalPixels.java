@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 University of Dundee & Open Microscopy Environment.
+ * Copyright (C) 2016-2020 University of Dundee & Open Microscopy Environment.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -158,17 +158,20 @@ public class LocalPixels {
         int tileNumber = 0;
         int planeIndex = -1;
         TileIterator.Tile previousTile = null;
+        IFD ifd = null;
         for (final TileIterator.Tile tile : tiles) {
             if (!tile.isSamePlane(previousTile)) {
                 previousTile = tile;
                 planeIndex++;
+                if (writer instanceof TiffWriter) {
+                    /* TiffWriter requires an IFD for each plane of tiled writing */
+                    ifd = new IFD();
+                    ifd.put(IFD.TILE_WIDTH, tileSize.width);
+                    ifd.put(IFD.TILE_LENGTH, tileSize.height);
+                }
             }
             final byte[] pixels = tileIO.readBytes(tileSizes[tileNumber]);
             if (writer instanceof TiffWriter) {
-              /* TiffWriter requires IFD for tiled writing */
-              final IFD ifd = new IFD();
-              ifd.put(IFD.TILE_WIDTH, tileSize.width);
-              ifd.put(IFD.TILE_LENGTH, tileSize.height);
               ((TiffWriter) writer).saveBytes(planeIndex, pixels, ifd, tile.x, tile.y, tile.w, tile.h);
             } else {
               writer.saveBytes(planeIndex, pixels, tile.x, tile.y, tile.w, tile.h);

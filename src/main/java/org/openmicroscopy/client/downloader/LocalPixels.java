@@ -172,9 +172,9 @@ public class LocalPixels {
             }
             final byte[] pixels = tileIO.readBytes(tileSizes[tileNumber]);
             if (writer instanceof TiffWriter) {
-              ((TiffWriter) writer).saveBytes(planeIndex, pixels, ifd, tile.x, tile.y, tile.w, tile.h);
+                ((TiffWriter) writer).saveBytes(planeIndex, pixels, ifd, tile.x, tile.y, tile.w, tile.h);
             } else {
-              writer.saveBytes(planeIndex, pixels, tile.x, tile.y, tile.w, tile.h);
+                writer.saveBytes(planeIndex, pixels, tile.x, tile.y, tile.w, tile.h);
             }
             if (tileNumber % TILES_PER_DOT == 0) {
                 System.out.print('.');

@@ -1,3 +1,9 @@
+# 0.2.1 (January 2020)
+
+- Remove the Unidata NetCDF repository. (PR [\#28](https://github.com/ome/omero-downloader/pull/28))
+- Work against OMERO 5.5 and 5.6 servers. (PR [\#31](https://github.com/ome/omero-downloader/pull/31))
+- Set `writeSequentially` to improve performance. (PR [\#32](https://github.com/ome/omero-downloader/pull/32))
+
 # 0.2.0 (July 2019)
 
 Work against OMERO 5.5 servers.

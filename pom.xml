@@ -42,7 +42,7 @@
       <dependency>
         <groupId>org.openmicroscopy</groupId>
         <artifactId>omero-gateway</artifactId>
-        <version>5.6.2</version>
+        <version>5.6.3</version>
       </dependency>
       <dependency>
         <groupId>commons-cli</groupId>

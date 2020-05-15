@@ -17,7 +17,7 @@ For development, from the source repository `mvn` builds and packages the downlo
 
 # User Guide
 
-In addition to the instructions below, OMERO downloader is described the
+In addition to the instructions below, OMERO downloader is described in the
 [download section](https://omero-guides.readthedocs.io/en/latest/download/docs/download.html)
 of the OMERO user guide.
 

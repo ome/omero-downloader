@@ -1,3 +1,7 @@
+# 0.2.2 (October 2020)
+
+- Update to use OMERO Java Gateway 5.6.5. (PR [\#41](https://github.com/ome/omero-downloader/pull/41))
+
 # 0.2.1 (January 2020)
 
 - Remove the Unidata NetCDF repository. (PR [\#28](https://github.com/ome/omero-downloader/pull/28))

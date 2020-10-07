@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2019 University of Dundee & Open Microscopy Environment.
+ * Copyright (C) 2016-2020 University of Dundee & Open Microscopy Environment.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -84,6 +84,7 @@ import omero.sys.ParametersI;
 import org.openmicroscopy.client.downloader.metadata.AnnotationMetadata;
 import org.openmicroscopy.client.downloader.metadata.ImageMetadata;
 import org.openmicroscopy.client.downloader.metadata.RoiMetadata;
+import org.openmicroscopy.client.downloader.util.TimeUtil;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -586,6 +587,7 @@ public class XmlGenerator {
             System.out.print(", already have " + alreadyHave);
         }
         System.out.print("..");
+        final long startTime = System.nanoTime();
         try {
             for (final List<Long> idBatch : Lists.partition(ImmutableList.copyOf(files.keySet()), BATCH_SIZE)) {
                 System.out.print('.');
@@ -596,7 +598,7 @@ public class XmlGenerator {
                 }
                 objectWriter.writeObjects(toWrite.build());
             }
-            System.out.println(" done");
+            TimeUtil.printDone(startTime);
         } catch (IOException | ServerError | ServiceException | TransformerException e) {
             System.out.println(" failed");
             LOGGER.error(e, "failed to obtain " + objectWriter.getObjectsName() +" and write as XML");

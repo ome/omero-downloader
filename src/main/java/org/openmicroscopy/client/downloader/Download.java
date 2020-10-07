@@ -102,6 +102,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import org.openmicroscopy.client.downloader.options.OptionParser;
+import org.openmicroscopy.client.downloader.util.TimeUtil;
 
 /**
  * OMERO client for downloading data in bulk from the server.
@@ -792,13 +793,14 @@ public class Download {
                         System.out.println("already assembled metadata for image " + imageId);
                         continue;
                     }
+                    final long startTime = System.nanoTime();
                     final File temporaryFile = new File(exportFile.getParentFile(), "temp-" + UUID.randomUUID());
                     try (final OutputStream out = new FileOutputStream(temporaryFile);
                          final XmlAssembler writer = new XmlAssembler(omeXmlService, containment, metadataFiles, out)) {
                         writer.writeImage(imageId);
                     }
                     temporaryFile.renameTo(exportFile);
-                    System.out.println(" done");
+                    TimeUtil.printDone(startTime);
                 }
             } else if (objects.containsKey(ModelType.ROI)) {
                 final Set<Long> roiIds = objects.get(ModelType.ROI);
@@ -815,13 +817,14 @@ public class Download {
                         System.out.println("already assembled metadata for ROI " + roiId);
                         continue;
                     }
+                    final long startTime = System.nanoTime();
                     final File temporaryFile = new File(exportFile.getParentFile(), "temp-" + UUID.randomUUID());
                     try (final OutputStream out = new FileOutputStream(temporaryFile);
                          final XmlAssembler writer = new XmlAssembler(omeXmlService, containment, metadataFiles, out)) {
                         writer.writeRoi(roiId);
                     }
                     temporaryFile.renameTo(exportFile);
-                    System.out.println(" done");
+                    TimeUtil.printDone(startTime);
                 }
             } else if (objects.containsKey(ModelType.ANNOTATION)) {
                 final Set<Long> annotationIds = objects.get(ModelType.ANNOTATION);
@@ -838,6 +841,7 @@ public class Download {
                         System.out.println("already assembled metadata for annotation " + annotationId);
                         continue;
                     }
+                    final long startTime = System.nanoTime();
                     final File temporaryFile = new File(exportFile.getParentFile(), "temp-" + UUID.randomUUID());
                     try (final OutputStream out = new FileOutputStream(temporaryFile);
                         final XmlAssembler writer = new XmlAssembler(omeXmlService, containment, metadataFiles, out)) {
@@ -847,7 +851,7 @@ public class Download {
                       throw ioe;
                     }
                     temporaryFile.renameTo(exportFile);
-                    System.out.println(" done");
+                    TimeUtil.printDone(startTime);
                 }
             }
         } catch (IOException ioe) {

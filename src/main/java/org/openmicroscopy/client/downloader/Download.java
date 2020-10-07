@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2019 University of Dundee & Open Microscopy Environment.
+ * Copyright (C) 2016-2020 University of Dundee & Open Microscopy Environment.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -249,7 +249,7 @@ public class Download {
             GATEWAY.connect(credentials);
             userData = GATEWAY.getLoggedInUser();
         } catch (DSOutOfServiceException oose) {
-            LOGGER.fatal(oose, "cannot log in to server");
+            LOGGER.fatal(oose, "cannot log in to server: " + oose.getMessage());
             abortOnFatalError(3);
         }
         ctx = new SecurityContext(userData.getDefaultGroup().getGroupId());

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 University of Dundee & Open Microscopy Environment.
+ * Copyright (C) 2016-2020 University of Dundee & Open Microscopy Environment.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -45,6 +45,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
+
+import org.openmicroscopy.client.downloader.util.TimeUtil;
 
 /**
  * Track the relationships among filesets, images, pixels and original files.
@@ -165,6 +167,7 @@ public class FileMapper {
         /* map the filesets of the targeted images */
         System.out.print("mapping filesets of images...");
         System.out.flush();
+        final long startTime = System.nanoTime();
         try {
             for (final List<Long> imageIdBatch : Lists.partition(ImmutableList.copyOf(imageIds), BATCH_SIZE)) {
                 final Set<Long> filesetsThisBatch = new HashSet<>();
@@ -229,7 +232,7 @@ public class FileMapper {
             }
             shortenPaths(fsFiles);
         }
-        System.out.println(" done");
+        TimeUtil.printDone(startTime);
     }
 
     /**

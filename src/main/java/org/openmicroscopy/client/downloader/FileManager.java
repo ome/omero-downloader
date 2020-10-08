@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 University of Dundee & Open Microscopy Environment.
+ * Copyright (C) 2016-2020 University of Dundee & Open Microscopy Environment.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -30,6 +30,8 @@ import omero.log.Logger;
 import omero.log.SimpleLogger;
 
 import com.google.common.math.IntMath;
+
+import org.openmicroscopy.client.downloader.util.TimeUtil;
 
 /**
  * Manage the remote and local locations of files.
@@ -63,6 +65,7 @@ public class FileManager {
                 }
                 System.out.print(" download of file " + fileId + "...");
                 System.out.flush();
+                final long startTime = System.nanoTime();
                 /* check for download restriction before creating local file */
                 fileStore.read(0, 0);
                 final OutputStream out = new FileOutputStream(destination, true);
@@ -79,7 +82,7 @@ public class FileManager {
                     System.out.print('.');
                     System.out.flush();
                 } while (bytesRemaining > 0);
-                System.out.println(" done");
+                TimeUtil.printDone(startTime);
                 out.close();
             }
         } catch (ServerError se) {

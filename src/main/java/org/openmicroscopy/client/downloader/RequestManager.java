@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 University of Dundee & Open Microscopy Environment.
+ * Copyright (C) 2016-2020 University of Dundee & Open Microscopy Environment.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -32,6 +32,8 @@ import omero.gateway.Gateway;
 import omero.gateway.SecurityContext;
 
 import org.apache.commons.lang3.StringUtils;
+
+import org.openmicroscopy.client.downloader.util.TimeUtil;
 
 /**
  * Manage submission of requests to the OMERO server.
@@ -66,6 +68,7 @@ public class RequestManager {
     public <X extends Response> X submit(String action, Request request, Class<X> responseClass) {
         System.out.print(action + "...");
         System.out.flush();
+        final long startTime = System.nanoTime();
         int thisTimeout = timeoutSeconds;
         CmdCallbackI callback = null;
         try {
@@ -97,7 +100,7 @@ public class RequestManager {
         }
         try {
             final X desiredResponse = responseClass.cast(response);
-            System.out.println(" done");
+            TimeUtil.printDone(startTime);
             return desiredResponse;
         } catch (ClassCastException cce) {
             if (response instanceof GraphException) {

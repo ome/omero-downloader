@@ -38,6 +38,7 @@ import omero.log.SimpleLogger;
 
 import org.openmicroscopy.client.downloader.util.FileIO;
 import org.openmicroscopy.client.downloader.util.TileIterator;
+import org.openmicroscopy.client.downloader.util.TimeUtil;
 
 /**
  * Download a remote image's tiles into a local file and assemble them into a TIFF file.
@@ -115,6 +116,7 @@ public class LocalPixels {
         }
         System.out.print(" download of pixels " + rps.getPixelsId() + "...");
         System.out.flush();
+        final long startTime = System.nanoTime();
         int tileNumber = 0;
         for (final TileIterator.Tile tile : tiles) {
             final long from = tileIO.tell();
@@ -137,7 +139,7 @@ public class LocalPixels {
             tileNumber++;
         }
         tileIO.close();
-        System.out.println(" done");
+        TimeUtil.printDone(startTime);
     }
 
     /**
@@ -150,6 +152,7 @@ public class LocalPixels {
     public void writeTiles(FormatWriter writer) throws FormatException, IOException, ServerError {
         System.out.print("assembling pixels " + rps.getPixelsId() + "..");
         System.out.flush();
+        final long startTime = System.nanoTime();
         final FileIO tileIO = new FileIO(tileFile, false);
         final int[] tileSizes = new int[tileIO.readInt()];
         for (int tileNumber = 0; tileNumber < tileSizes.length; tileNumber++) {
@@ -184,6 +187,6 @@ public class LocalPixels {
         }
         writer.close();
         tileIO.close();
-        System.out.println(" done");
+        TimeUtil.printDone(startTime);
     }
 }

@@ -233,8 +233,12 @@ public class Download {
 
         if (key == null) {
             if (user == null || pass == null) {
-                System.err.println("must offer username and password or session key");
-                abortOnFatalError(2);
+                if (parsedOptions.isVersion()) {
+                    abortOnFatalError(0);
+                } else {
+                    System.err.println("must offer username and password or session key, use \"-h\" for help");
+                    abortOnFatalError(2);
+                }
             }
         } else {
             if (user != null || pass != null) {
@@ -861,6 +865,10 @@ public class Download {
      * @param parsedOptions the parsed command-line options
      */
     private static void actOnOptions(OptionParser.Chosen parsedOptions) {
+        if (parsedOptions.isVersion()) {
+            System.out.println(ProjectInfo.getName() + " v" + ProjectInfo.getVersion());
+        }
+
         openGateway(parsedOptions);
         setUpServices(parsedOptions.getBaseDirectory());
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 University of Dundee & Open Microscopy Environment.
+ * Copyright (C) 2016-2020 University of Dundee & Open Microscopy Environment.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -132,6 +132,13 @@ public class OptionParser {
         }
 
         /**
+         * @return if the version number is requested
+         */
+        public boolean isVersion() {
+            return chosenOptions.hasOption('v');
+        }
+
+        /**
          * @return the command-line arguments that are not options
          */
         public List<String> getArguments() {
@@ -170,7 +177,8 @@ public class OptionParser {
                     + Joiner.on(',').join(linkTypes.getOptionNames()) + " or " + OptionSet.NONE + ", default is "
                     + (linkTypes.getDefaultNames().isEmpty() ? OptionSet.NONE
                                                              : Joiner.on(',').join(linkTypes.getDefaultNames())))
-            .addOption("h", "help", false, "show usage summary");
+            .addOption("h", "help", false, "show usage summary")
+            .addOption("v", "version", false, "show version number");
 
     private static final CommandLineParser parser = new DefaultParser();
     private static final HelpFormatter formatter = new HelpFormatter();

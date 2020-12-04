@@ -49,15 +49,16 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     if: startsWith(github.ref, 'refs/tags')
-    env:
-      publishing_target: github # default is github
+    strategy:
+      matrix:
+        publishing_target: [github]
     steps:
       - name: Download artifacts from build
         uses: actions/download-artifact@v2
       - name: List artifacts
         run: ls -R
       - name: Upload binaries to release
-        if: ${{ env.publishing_target }} == 'github'
+        if: ${{ matrix.publishing_target }} == 'github'
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}

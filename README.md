@@ -1,5 +1,7 @@
 # Summary
 
+[![Actions Status](https://github.com/ome/omero-downloader/workflows/Maven/badge.svg)](https://github.com/ome/omero-downloader/actions)
+
 An OMERO client for downloading data in bulk from an OMERO.server.
 The `-h` option prints a brief summary of command-line options.
 

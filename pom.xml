@@ -42,6 +42,12 @@
         <groupId>org.openmicroscopy</groupId>
         <artifactId>omero-gateway</artifactId>
         <version>5.7.0</version>
+         <exclusions>
+        <exclusion>
+          <groupId>edu.ucar</groupId>
+          <artifactId>cdm-core</artifactId>
+        </exclusion>
+      </exclusions>
       </dependency>
       <dependency>
         <groupId>commons-cli</groupId>

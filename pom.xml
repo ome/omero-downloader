@@ -42,12 +42,6 @@
         <groupId>org.openmicroscopy</groupId>
         <artifactId>omero-gateway</artifactId>
         <version>5.7.0</version>
-         <exclusions>
-        <exclusion>
-          <groupId>edu.ucar</groupId>
-          <artifactId>cdm-core</artifactId>
-        </exclusion>
-      </exclusions>
       </dependency>
       <dependency>
         <groupId>commons-cli</groupId>
@@ -100,12 +94,16 @@
 
   <repositories>
       <repository>
+        <id>unidata.releases</id>
+        <url>https://artifacts.unidata.ucar.edu/content/repositories/unidata-releases</url>
+      <snapshots><enabled>false</enabled></snapshots>
+      </repository>
+      <repository>
         <id>ome.maven</id>
         <name>OME Maven Artifactory</name>
         <url>https://artifacts.openmicroscopy.org/artifactory/maven</url>
       </repository>
   </repositories>
-
   <build>
     <defaultGoal>package</defaultGoal>
     <plugins>

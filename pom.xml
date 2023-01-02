@@ -41,7 +41,7 @@
       <dependency>
         <groupId>org.openmicroscopy</groupId>
         <artifactId>omero-gateway</artifactId>
-        <version>5.6.5</version>
+        <version>5.7.0</version>
       </dependency>
       <dependency>
         <groupId>commons-cli</groupId>
@@ -56,7 +56,7 @@
       <dependency>
         <groupId>org.testng</groupId>
         <artifactId>testng</artifactId>
-        <version>6.14.3</version>
+        <version>7.5</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
@@ -94,12 +94,16 @@
 
   <repositories>
       <repository>
+        <id>unidata.releases</id>
+        <url>https://artifacts.unidata.ucar.edu/content/repositories/unidata-releases</url>
+      <snapshots><enabled>false</enabled></snapshots>
+      </repository>
+      <repository>
         <id>ome.maven</id>
         <name>OME Maven Artifactory</name>
         <url>https://artifacts.openmicroscopy.org/artifactory/maven</url>
       </repository>
   </repositories>
-
   <build>
     <defaultGoal>package</defaultGoal>
     <plugins>

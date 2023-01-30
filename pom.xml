@@ -8,7 +8,7 @@
 
   <groupId>omero</groupId>
   <artifactId>downloader</artifactId>
-  <version>0.2.3-SNAPSHOT</version>
+  <version>0.3.0</version>
 
   <name>OMERO.downloader</name>
   <description>OMERO client for downloading data in bulk from the server</description>

@@ -1,3 +1,10 @@
+# 0.3.0 (January 2023)
+
+- Update to use OMERO Java Gateway 5.7.0. (PR [\#41](https://github.com/ome/omero-downloader/pull/49))
+- Update to use testNG 7.5. (PR [\#41](https://github.com/ome/omero-downloader/pull/49))
+- Exclude edu.ucar:cdm-core. (PR [\#41](https://github.com/ome/omero-downloader/pull/49))
+
+
 # 0.2.2 (October 2020)
 
 - Update to use OMERO Java Gateway 5.6.5. (PR [\#41](https://github.com/ome/omero-downloader/pull/41))

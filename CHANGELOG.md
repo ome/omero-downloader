@@ -1,3 +1,7 @@
+# 0.3.1 (March 2023)
+
+- Update to use OMERO Java Gateway 5.8.0. (PR [\#52](https://github.com/ome/omero-downloader/pull/52))
+
 # 0.3.0 (January 2023)
 
 - Update to use OMERO Java Gateway 5.7.0. (PR [\#41](https://github.com/ome/omero-downloader/pull/49))

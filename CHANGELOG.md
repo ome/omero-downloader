@@ -1,3 +1,7 @@
+# 0.3.3 (July 2023)
+
+- Fix upload of artifacts
+
 # 0.3.2 (July 2023)
 
 - Update to use OMERO Java Gateway 5.8.1. (PR [\#52](https://github.com/ome/omero-downloader/pull/53))
